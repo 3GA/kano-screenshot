@@ -196,6 +196,23 @@ pngWriteImageRGBA32(
     }
 }
 
+
+/*
+ *  crop() extracts an area from one plain image (source) into another one (target) using bpp bytes per pixel
+ *
+ */
+int crop (unsigned char *source, unsigned char *target, int sourcew, int sourceh, int cropx, int cropy, int cropw, int croph, int bpp)
+{
+  int y;
+  for (y=0; y < croph; y++)
+    {
+      // TODO: Error control for out-of-range cropping coordinates
+      //
+      memcpy ( (void*) target + (y * cropw * bpp), (void*) source + ( (y + cropy) * sourcew * bpp + (cropx * bpp)), cropw * bpp);
+    }
+  return 0;
+}
+
 //-----------------------------------------------------------------------
 
 int main(int argc, char *argv[])
@@ -337,6 +354,10 @@ int main(int argc, char *argv[])
     int width = modeInfo.width;
     int height = modeInfo.height;
 
+    // ska
+    //width = 300;
+    //height = 300;
+
     if (requestedWidth > 0)
     {
         width = requestedWidth;
@@ -412,8 +433,8 @@ int main(int argc, char *argv[])
     }
 
     VC_RECT_T rect;
-    result = vc_dispmanx_rect_set(&rect, 0, 0, width, height);
 
+    result = vc_dispmanx_rect_set(&rect, 0, 0, width, height);
     if (verbose)
     {
         printf("vc_dispmanx_rect_set() returned %d\n", result);
@@ -433,11 +454,11 @@ int main(int argc, char *argv[])
         exit(EXIT_FAILURE);
     }
 
+
     result = vc_dispmanx_resource_read_data(resourceHandle,
                                             &rect,
                                             dmxImagePtr,
                                             pitch);
-
 
     if (result != 0)
     {
@@ -542,7 +563,7 @@ int main(int argc, char *argv[])
     {
     case VC_IMAGE_RGB565:
 
-        pngWriteImageRGB565(width,
+      pngWriteImageRGB565(width,
                             height,
                             pitch,
                             dmxImagePtr,
@@ -584,6 +605,10 @@ int main(int argc, char *argv[])
 
         break;
     }
+
+
+    
+
 
     png_write_end(pngPtr, NULL);
     png_destroy_write_struct(&pngPtr, &infoPtr);

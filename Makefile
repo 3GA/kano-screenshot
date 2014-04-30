@@ -10,7 +10,14 @@ LDFLAGS+=-L/opt/vc/lib/ -lbcm_host $(shell libpng-config --ldflags)
 
 INCLUDES+=-I/opt/vc/include/ -I/opt/vc/include/interface/vcos/pthreads -I/opt/vc/include/interface/vmcs_host/linux
 
-all: $(BIN)
+all: $(BIN) haw
+
+# haw is a POC to make sure we can crop a screenshot as fast as we can
+haw.o: haw.c
+	$(CC) $(CFLAGS) $(INCLUDES) -g -c haw.c -o haw.o -Wno-deprecated-declarations
+
+haw: haw.o
+	$(CC) -o $@ -Wl,--whole-archive haw.o $(LDFLAGS) -Wl,--no-whole-archive -rdynamic
 
 %.o: %.c
 	@rm -f $@ 

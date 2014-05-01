@@ -208,8 +208,11 @@ int crop (unsigned char *source, unsigned char *target, int sourcew, int sourceh
     {
       // TODO: Error control for out-of-range cropping coordinates
       //
-      memcpy ( (void*) target + (y * cropw * bpp), (void*) source + ( (y + cropy) * sourcew * bpp + (cropx * bpp)), cropw * bpp);
+      memcpy ( (void*) target + (y * (cropw * bpp)),
+	       (void*) source + ((y + cropy) * sourcew * bpp + (cropx * bpp)), 
+	       cropw * bpp);
     }
+
   return 0;
 }
 
@@ -224,6 +227,7 @@ int main(int argc, char *argv[])
     int requestedHeight = 0;
     bool verbose = false;
     int delay = 0;
+    bool cropping = false;
 
     const char* imageTypeName = "RGB888";
     VC_IMAGE_TYPE_T imageType = VC_IMAGE_MIN;
@@ -353,10 +357,6 @@ int main(int argc, char *argv[])
 
     int width = modeInfo.width;
     int height = modeInfo.height;
-
-    // ska
-    //width = 300;
-    //height = 300;
 
     if (requestedWidth > 0)
     {
@@ -491,6 +491,31 @@ int main(int argc, char *argv[])
         printf("vc_dispmanx_display_close() returned %d\n", result);
     }
 
+    // Do the screenshot cropping if requested.
+    if (cropping) {
+      
+      int cropx=302, cropy=657, cropwidth=501, cropheight=101;
+      void *dmxCroppedImagePtr = calloc (cropheight, pitch);
+      if (!dmxCroppedImagePtr) {
+	fprintf(stderr, "%s: unable to allocated cropping buffer\n", program);
+	exit (1);
+      }
+      else {
+	// Extract the requested area from the complete screenshot
+	printf ("Cropping screenshot area @%dx%d size %dx%d\n", cropx, cropy, cropwidth, cropheight);
+
+	// Crop image off screenshot, then swap the image buffers so that png saves the cropped image instead
+	crop (dmxImagePtr, dmxCroppedImagePtr, ALIGN_TO_16(width), height, cropx, cropy, cropwidth, cropheight, bytesPerPixel);
+	free (dmxImagePtr);
+	dmxImagePtr = dmxCroppedImagePtr;
+
+	// Provide the new image size details
+	width = cropwidth;
+	height = cropheight;
+	pitch = bytesPerPixel * width;
+      }
+    }
+
     //-------------------------------------------------------------------
 
     png_structp pngPtr = png_create_write_struct(PNG_LIBPNG_VER_STRING,
@@ -543,7 +568,7 @@ int main(int argc, char *argv[])
 
     if ((imageType == VC_IMAGE_RGBA16) || (imageType == VC_IMAGE_RGBA32))
     {
-        png_color_type = PNG_COLOR_TYPE_RGBA;
+      png_color_type = PNG_COLOR_TYPE_RGBA;
     }
 
     png_set_IHDR(

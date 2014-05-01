@@ -12,16 +12,19 @@ INCLUDES+=-I/opt/vc/include/ -I/opt/vc/include/interface/vcos/pthreads -I/opt/vc
 
 all: $(BIN) haw
 
+debug:
+	make CDEBUG="-ggdb -O3 -DDEBUG" all
+
 # haw is a POC to make sure we can crop a screenshot as fast as we can
 haw.o: haw.c
-	$(CC) $(CFLAGS) $(INCLUDES) -g -c haw.c -o haw.o -Wno-deprecated-declarations
+	$(CC) $(CFLAGS) $(CDEBUG) $(INCLUDES) -c haw.c -o haw.o -Wno-deprecated-declarations
 
 haw: haw.o
 	$(CC) -o $@ -Wl,--whole-archive haw.o $(LDFLAGS) -Wl,--no-whole-archive -rdynamic
 
 %.o: %.c
 	@rm -f $@ 
-	$(CC) $(CFLAGS) $(INCLUDES) -g -c $< -o $@ -Wno-deprecated-declarations
+	$(CC) $(CFLAGS) $(INCLUDES) $(CDEBUG) -c $< -o $@ -Wno-deprecated-declarations
 
 $(BIN): $(OBJS)
 	$(CC) -o $@ -Wl,--whole-archive $(OBJS) $(LDFLAGS) -Wl,--no-whole-archive -rdynamic

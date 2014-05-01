@@ -13,6 +13,10 @@ of the RaspberryPI GPU surfaces, where other tools like scrot cannot.
 This is the case with applications like Minecraft.
 
 It also is capable of cropping areas from the screenshot by coordinates and by application name.
+
+When invoked without parameters it defaults to taking a complete screenshot saved in the file kano-screenshot.png
+on the current directory.
+
 Here's a practical usage transcript to better understand how to use it.
 
 ```

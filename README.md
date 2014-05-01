@@ -54,4 +54,8 @@ Window id 0x1600002 (Minecraft - Pi edition)
 albert@kano ~ $ kano-screenshot -a "Minecraft - Pi edition" -p /tmp/minecraft.png
 Cropping application name 'Minecraft - Pi edition' (x=0, y=0, width=1440, height=428)
 Cropping screenshot area @0x0 size 1440x428
+
+albert@kano ~ $ kano-screenshot -c 120,150,450,600 -p /tmp/desktop-area.png
+Cropping screenshot area @120x150 size 450x600
+
 ```

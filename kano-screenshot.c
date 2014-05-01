@@ -227,7 +227,10 @@ int main(int argc, char *argv[])
     int requestedHeight = 0;
     bool verbose = false;
     int delay = 0;
+
+    // -c parameter variables
     bool cropping = false;
+    int cropx=0, cropy=0, cropwidth=0, cropheight=0;
 
     const char* imageTypeName = "RGB888";
     VC_IMAGE_TYPE_T imageType = VC_IMAGE_MIN;
@@ -239,7 +242,7 @@ int main(int argc, char *argv[])
 
     //-------------------------------------------------------------------
 
-    while ((opt = getopt(argc, argv, "d:h:p:t:vw:")) != -1)
+    while ((opt = getopt(argc, argv, "d:h:p:t:vw:c:")) != -1)
     {
         switch (opt)
         {
@@ -273,11 +276,28 @@ int main(int argc, char *argv[])
             requestedWidth = atoi(optarg);
             break;
 
+	case 'c':
+	  // cropping
+	  cropping = true;
+	  sscanf (optarg, "%d,%d,%d,%d", &cropx, &cropy, &cropwidth, &cropheight);
+
+	  // minimum validation
+	  if (cropwidth && cropheight) {
+	    cropping = true;
+	    printf ("Cropping area: x=%d, y=%d, width=%d, height=%d\n",
+		    cropx, cropy, cropwidth, cropheight);
+	  }
+	  else {
+	    fprintf (stderr, "Error parsing the cropping area: %s\n", optarg);
+	    exit (1);
+	  }
+	  break;
+
         default:
 
             fprintf(stderr, "Usage: %s [-p pngname] [-v]", program);
             fprintf(stderr, " [-w <width>] [-h <height>] [-t <type>]");
-            fprintf(stderr, " [-d <delay>]\n");
+            fprintf(stderr, " [-d <delay>] [-c <x,y,width,height>]\n");
 
             fprintf(stderr, "    -p - name of png file to create ");
             fprintf(stderr, "(default is %s)\n", pngName);
@@ -287,6 +307,8 @@ int main(int argc, char *argv[])
                     "    -h - image height (default is screen height)\n");
             fprintf(stderr,
                     "    -w - image width (default is screen width)\n");
+            fprintf(stderr,
+                    "    -c - crop area off the screenshot (default is full screen)\n");
 
             fprintf(stderr, "    -t - type of image captured\n");
             fprintf(stderr, "         can be one of the following:");
@@ -493,8 +515,7 @@ int main(int argc, char *argv[])
 
     // Do the screenshot cropping if requested.
     if (cropping) {
-      
-      int cropx=302, cropy=657, cropwidth=501, cropheight=101;
+
       void *dmxCroppedImagePtr = calloc (cropheight, pitch);
       if (!dmxCroppedImagePtr) {
 	fprintf(stderr, "%s: unable to allocated cropping buffer\n", program);

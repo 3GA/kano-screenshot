@@ -37,6 +37,8 @@
 
 #include "bcm_host.h"
 
+#include "xwindows.h"
+
 //-----------------------------------------------------------------------
 
 #ifndef ALIGN_TO_16
@@ -222,7 +224,8 @@ int main(int argc, char *argv[])
 {
     int opt = 0;
 
-    char *pngName = "snapshot.png";
+    char *pngName = "kano-screenshot.png";
+
     int requestedWidth = 0;
     int requestedHeight = 0;
     bool verbose = false;
@@ -231,6 +234,9 @@ int main(int argc, char *argv[])
     // -c parameter variables
     bool cropping = false;
     int cropx=0, cropy=0, cropwidth=0, cropheight=0;
+
+    // -a parameter variables
+    char *appname=NULL;
 
     const char* imageTypeName = "RGB888";
     VC_IMAGE_TYPE_T imageType = VC_IMAGE_MIN;
@@ -242,7 +248,7 @@ int main(int argc, char *argv[])
 
     //-------------------------------------------------------------------
 
-    while ((opt = getopt(argc, argv, "d:h:p:t:vw:c:")) != -1)
+    while ((opt = getopt(argc, argv, "d:h:p:t:vw:c:a:l")) != -1)
     {
         switch (opt)
         {
@@ -276,15 +282,39 @@ int main(int argc, char *argv[])
             requestedWidth = atoi(optarg);
             break;
 
-	case 'c':
-	  // cropping
-	  sscanf (optarg, "%d,%d,%d,%d", &cropx, &cropy, &cropwidth, &cropheight);
+	case 'l':
+	  // list all X11 window names that kano-screenshot can find
+	  printf ("list of X11 windows from which a screen shot can be taken\n");
+	  printf ("use the -a flag along with the complete window name\n\n");
+	  bool appfound = findWindowCoordinatesByName (NULL, true, NULL, NULL, NULL, NULL);
+	  exit (0);
 
+	case 'a':
+	  // cropping based on a X11 app window name
+	  appname = optarg;
+	  appfound = findWindowCoordinatesByName (appname, verbose, &cropx, &cropy, &cropwidth, &cropheight);
+	  if (appfound == true) {
+	    cropping = true;
+	    printf ("Cropping application name '%s' (x=%d, y=%d, width=%d, height=%d)\n",
+		    appname, cropx, cropy, cropwidth, cropheight);
+	  }
+	  else {
+	    fprintf (stderr, "Could not find coordinates of X11 application name: %s\n", appname);
+	    exit (1);
+	  }
+	  break;
+
+	case 'c':
+	  // cropping a specific area off the screenshot
+	  sscanf (optarg, "%d,%d,%d,%d", &cropx, &cropy, &cropwidth, &cropheight);
+	  
 	  // minimum validation
 	  if (cropwidth && cropheight) {
 	    cropping = true;
-	    printf ("Cropping area: x=%d, y=%d, width=%d, height=%d\n",
-		    cropx, cropy, cropwidth, cropheight);
+	    if (verbose == true) {
+	      printf ("Cropping area: x=%d, y=%d, width=%d, height=%d\n",
+		      cropx, cropy, cropwidth, cropheight);
+	    }
 	  }
 	  else {
 	    cropping = false;
@@ -298,6 +328,7 @@ int main(int argc, char *argv[])
             fprintf(stderr, "Usage: %s [-p pngname] [-v]", program);
             fprintf(stderr, " [-w <width>] [-h <height>] [-t <type>]");
             fprintf(stderr, " [-d <delay>] [-c <x,y,width,height>]\n");
+	    fprintf(stderr, " [-a <application>]\n");
 
             fprintf(stderr, "    -p - name of png file to create ");
             fprintf(stderr, "(default is %s)\n", pngName);
@@ -308,8 +339,13 @@ int main(int argc, char *argv[])
             fprintf(stderr,
                     "    -w - image width (default is screen width)\n");
             fprintf(stderr,
-                    "    -c - crop area off the screenshot (default is full screen)\n");
-
+                    "    -c - crop area off the screenshot by given coordinates (default is full screen)\n");
+            fprintf(stderr,
+                    "    -a - crop area off the screenshot occupied by X11 application window name (as reported by xwininfo)\n");
+            fprintf(stderr,
+                    "    -l - list of all X11 application window names to help using the -a option\n");
+            fprintf(stderr,
+                    "    -p - override output image filename (default is kano-screenshot-timestamp.png\n");
             fprintf(stderr, "    -t - type of image captured\n");
             fprintf(stderr, "         can be one of the following:");
 

@@ -3,7 +3,7 @@ Maintainer: Team Kano <dev@kano.me>
 Section: x11
 Priority: optional
 Standards-Version: 1.1.0
-Build-Depends: libpng12-dev, libraspberrypi-dev, debhelper (>=9.0.0)
+Build-Depends: libpng12-dev, libraspberrypi-dev, libx11-dev, debhelper (>=9.0.0)
 
 Package: kano-screenshot
 Architecture: any

@@ -5,11 +5,11 @@
 #  "make prototype" will build the latter
 #
 
-OBJS=kano-screenshot.o
+OBJS=kano-screenshot.o xwindows.o
 BIN=kano-screenshot
 
 CFLAGS+=-Wall -g -O3 $(shell libpng-config --cflags)
-LDFLAGS+=-L/opt/vc/lib/ -lbcm_host $(shell libpng-config --ldflags)
+LDFLAGS+=-L/opt/vc/lib/ -lbcm_host $(shell libpng-config --ldflags) -lX11
 INCLUDES+=-I/opt/vc/include/ -I/opt/vc/include/interface/vcos/pthreads -I/opt/vc/include/interface/vmcs_host/linux
 
 .PHONY: prototype

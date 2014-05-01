@@ -278,7 +278,6 @@ int main(int argc, char *argv[])
 
 	case 'c':
 	  // cropping
-	  cropping = true;
 	  sscanf (optarg, "%d,%d,%d,%d", &cropx, &cropy, &cropwidth, &cropheight);
 
 	  // minimum validation
@@ -288,6 +287,7 @@ int main(int argc, char *argv[])
 		    cropx, cropy, cropwidth, cropheight);
 	  }
 	  else {
+	    cropping = false;
 	    fprintf (stderr, "Error parsing the cropping area: %s\n", optarg);
 	    exit (1);
 	  }

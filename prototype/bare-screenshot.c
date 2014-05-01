@@ -1,11 +1,13 @@
-// 
-// haw.c - this is a transitional tool POC to be able to crop
-// an area of the screenshot.
 //
-// This module will disappear after the code moves into kano-screenshot.
+// bare-screenshot.cpp
 //
-// outputs 2 files: screenshot.ppm and screenshot-cropped.ppm
-// change variables photoXXX to define the cropping area.
+// Copyright (C) 2013-2014 Kano Computing Ltd.
+// License: http://www.gnu.org/licenses/gpl-2.0.txt GNU General Public License v2
+//
+// This POC takes a screenshot and shows how to crop it into a PPM file.
+// You want to play with photox, photoy, photow, and photoh to define the cropping area.
+//
+// It gives 2 output files: screenshot.ppm and screenshot-cropped.ppm
 //
 
 #include <stdio.h>

@@ -410,6 +410,7 @@ int main(int argc, char *argv[])
     if (result != 0)
     {
         fprintf(stderr, "%s: unable to get display information\n", program);
+	bcm_host_deinit();
         exit(EXIT_FAILURE);
     }
 
@@ -462,6 +463,7 @@ int main(int argc, char *argv[])
     if (dmxImagePtr == NULL)
     {
         fprintf(stderr, "%s: unable to allocated image buffer\n", program);
+	bcm_host_deinit();
         exit(EXIT_FAILURE);
     }
 
@@ -487,6 +489,7 @@ int main(int argc, char *argv[])
         vc_dispmanx_display_close(displayHandle);
 
         fprintf(stderr, "%s: vc_dispmanx_snapshot() failed\n", program);
+	bcm_host_deinit();
         exit(EXIT_FAILURE);
     }
 
@@ -509,6 +512,7 @@ int main(int argc, char *argv[])
         vc_dispmanx_display_close(displayHandle);
 
         fprintf(stderr, "%s: vc_dispmanx_rect_set() failed\n", program);
+	bcm_host_deinit();
         exit(EXIT_FAILURE);
     }
 
@@ -527,6 +531,7 @@ int main(int argc, char *argv[])
                 "%s: vc_dispmanx_resource_read_data() failed\n",
                 program);
 
+	bcm_host_deinit();
         exit(EXIT_FAILURE);
     }
 
@@ -586,6 +591,7 @@ int main(int argc, char *argv[])
                 "%s: unable to allocated PNG write structure\n",
                 program);
 
+	bcm_host_deinit();
         exit(EXIT_FAILURE);
     }
 
@@ -597,12 +603,14 @@ int main(int argc, char *argv[])
                 "%s: unable to allocated PNG info structure\n",
                 program);
 
+	bcm_host_deinit();
         exit(EXIT_FAILURE);
     }
 
     if (setjmp(png_jmpbuf(pngPtr)))
     {
         fprintf(stderr, "%s: unable to create PNG\n", program);
+	bcm_host_deinit();
         exit(EXIT_FAILURE);
     }
 
@@ -616,6 +624,7 @@ int main(int argc, char *argv[])
                 pngName,
                 strerror(errno));
 
+	bcm_host_deinit();
         exit(EXIT_FAILURE);
     }
 
@@ -699,7 +708,7 @@ int main(int argc, char *argv[])
     //-------------------------------------------------------------------
 
     free(dmxImagePtr);
-
+    bcm_host_deinit();
     return 0;
 }
 

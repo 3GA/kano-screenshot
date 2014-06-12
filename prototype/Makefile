@@ -1,8 +1,10 @@
-#
-# Prototype makefile
-#
+# Makefile
+# 
+# Copyright (C) 2014 Kano Computing Ltd.
+# License: http://www.gnu.org/licenses/gpl-2.0.txt GNU General Public License v2
+# 
 # bare-screenshot is a compact POC that takes a screenshot and shows how to crop it into a PPM graphics file
-#
+
 
 APP=bare-screenshot
 

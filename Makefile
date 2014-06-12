@@ -1,9 +1,13 @@
-#
+# Makefile
+# 
+# Copyright (C) 2014 Kano Computing Ltd.
+# License: http://www.gnu.org/licenses/gpl-2.0.txt GNU General Public License v2
+# 
 # Makefile to build kano-screenshot and prototype
-#
+# 
 #  "make" or "make all" will build kano-screenshot
 #  "make prototype" will build the latter
-#
+
 
 OBJS=kano-screenshot.o xwindows.o
 BIN=kano-screenshot

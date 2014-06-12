@@ -1,5 +1,5 @@
 //
-// bare-screenshot.cpp
+// bare-screenshot.c
 //
 // Copyright (C) 2013-2014 Kano Computing Ltd.
 // License: http://www.gnu.org/licenses/gpl-2.0.txt GNU General Public License v2

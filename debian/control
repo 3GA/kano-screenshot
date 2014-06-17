@@ -8,7 +8,5 @@ Build-Depends: libpng12-dev, libraspberrypi-dev, libx11-dev, debhelper (>=9.0.0)
 Package: kano-screenshot
 Architecture: any
 Depends: ${misc:Depends}, ${shlibs:Depends}
-Provides: kano-screenshot
-Replaces: kano-screenshot
 Description: Kano screenshot is a tool to take photos from your desktop
  It can take full screen images as well as coordinate areas or application areas.

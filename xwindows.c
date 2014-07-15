@@ -69,7 +69,7 @@ bool findWindowCoordinatesByName (char *window_name, bool verbose, int *x, int *
 
   display = XOpenDisplay (NULL);
   if (!display) {
-    fprintf (stderr, "Could not connect to the XServer - is your DISPLAY variable set?\n");
+    printf ("Could not connect to the XServer - is your DISPLAY variable set?\n");
     return false;
   }
   

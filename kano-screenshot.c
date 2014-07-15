@@ -416,33 +416,6 @@ int main(int argc, char *argv[])
 
     int width = modeInfo.width;
     int height = modeInfo.height;
-
-    if (requestedWidth > 0)
-    {
-        width = requestedWidth;
-
-        if (requestedHeight == 0)
-        {
-            double numerator = modeInfo.height * requestedWidth;
-            double denominator = modeInfo.width;
-
-            height = (int)ceil(numerator / denominator);
-        }
-    }
-
-    if (requestedHeight > 0)
-    {
-        height = requestedHeight;
-
-        if (requestedWidth == 0)
-        {
-            double numerator = modeInfo.width * requestedHeight;
-            double denominator = modeInfo.height;
-
-            width = (int)ceil(numerator / denominator);
-        }
-    }
-
     int pitch = bytesPerPixel * ALIGN_TO_16(width);
 
     if (verbose)
@@ -567,16 +540,53 @@ int main(int argc, char *argv[])
 	printf ("Cropping screenshot area @%dx%d size %dx%d\n", cropx, cropy, cropwidth, cropheight);
 
 	// Crop image off screenshot, then swap the image buffers so that png saves the cropped image instead
-	crop (dmxImagePtr, dmxCroppedImagePtr, ALIGN_TO_16(width), height, cropx, cropy, cropwidth, cropheight, bytesPerPixel);
+	crop (dmxImagePtr, dmxCroppedImagePtr, ALIGN_TO_16(width), height, cropx, cropy, ALIGN_TO_16(cropwidth), cropheight, bytesPerPixel);
 	free (dmxImagePtr);
 	dmxImagePtr = dmxCroppedImagePtr;
 
 	// Provide the new image size details
 	width = cropwidth;
 	height = cropheight;
-	pitch = bytesPerPixel * width;
+	//pitch = bytesPerPixel * ALIGN_TO_16(width);
       }
     }
+
+
+    if (requestedWidth > 0)
+      {
+        width = (requestedWidth > width ? width : requestedWidth);
+	
+        if (requestedHeight == 0)
+	  {
+            double numerator = height * requestedWidth;
+            double denominator = width;
+	    
+            height = (int)ceil(numerator / denominator);
+	  }
+
+	if (verbose == true) {
+	  printf ("Rescaling width: new width=%d, height=%d\n", width, height);
+	}
+      }
+
+    if (requestedHeight > 0)
+      {
+	height = (requestedHeight > height ? height : requestedHeight);
+	
+        if (requestedWidth == 0)
+	  {
+	    double numerator = width * requestedHeight;
+            double denominator = height;
+	    
+            width = (int)ceil(numerator / denominator);
+	  }
+
+	if (verbose == true) {
+	  printf ("Rescaling height: new width=%d, height=%d\n", width, height);
+	}
+      }
+
+    pitch = bytesPerPixel * ALIGN_TO_16(width);
 
     //-------------------------------------------------------------------
 

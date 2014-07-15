@@ -547,7 +547,6 @@ int main(int argc, char *argv[])
 	// Provide the new image size details
 	width = cropwidth;
 	height = cropheight;
-	//pitch = bytesPerPixel * ALIGN_TO_16(width);
       }
     }
 

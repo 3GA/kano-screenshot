@@ -39,6 +39,13 @@
 
 #include "xwindows.h"
 
+
+// A printf macro sensitive to the -v (verbose) flag
+// Use kprintf for regular stdout messages instead of printf or cout
+bool verbose=false; // Mute by default
+#define kprintf(fmt, ...) ( ((verbose==false) ? 1 : printf(fmt, ##__VA_ARGS__) ))
+
+
 //-----------------------------------------------------------------------
 
 #ifndef ALIGN_TO_16
@@ -88,8 +95,8 @@ pngWriteImageRGB565(
 
     if (imageRow == NULL)
     {
-        fprintf(stderr, "%s: unable to allocated row buffer\n", program);
-        exit(EXIT_FAILURE);
+      kprintf("%s: unable to allocated row buffer\n", program);
+      exit(EXIT_FAILURE);
     }
 
     int y = 0;
@@ -150,7 +157,7 @@ pngWriteImageRGBA16(
 
     if (imageRow == NULL)
     {
-        fprintf(stderr, "%s: unable to allocated row buffer\n", program);
+        kprintf("%s: unable to allocated row buffer\n", program);
         exit(EXIT_FAILURE);
     }
 
@@ -228,7 +235,6 @@ int main(int argc, char *argv[])
 
     int requestedWidth = 0;
     int requestedHeight = 0;
-    bool verbose = false;
     int delay = 0;
 
     // -c parameter variables
@@ -248,10 +254,15 @@ int main(int argc, char *argv[])
 
     //-------------------------------------------------------------------
 
-    while ((opt = getopt(argc, argv, "d:h:p:t:vw:c:a:l")) != -1)
+    while ((opt = getopt(argc, argv, "d:h:p:t:vw:c:a:l?")) != -1)
     {
         switch (opt)
         {
+        case 'v':
+
+            verbose = true;
+            break;
+
         case 'd':
 
             delay = atoi(optarg);
@@ -272,11 +283,6 @@ int main(int argc, char *argv[])
             imageTypeName = optarg;
             break;
 
-        case 'v':
-
-            verbose = true;
-            break;
-
         case 'w':
 
             requestedWidth = atoi(optarg);
@@ -295,11 +301,11 @@ int main(int argc, char *argv[])
 	  appfound = findWindowCoordinatesByName (appname, verbose, &cropx, &cropy, &cropwidth, &cropheight);
 	  if (appfound == true) {
 	    cropping = true;
-	    printf ("Cropping application name '%s' (x=%d, y=%d, width=%d, height=%d)\n",
+	    kprintf ("Cropping application name '%s' (x=%d, y=%d, width=%d, height=%d)\n",
 		    appname, cropx, cropy, cropwidth, cropheight);
 	  }
 	  else {
-	    fprintf (stderr, "Could not find coordinates of X11 application name: %s\n", appname);
+	    kprintf ("Could not find coordinates of X11 application name: %s\n", appname);
 	    exit(EXIT_FAILURE);
 	  }
 	  break;
@@ -312,51 +318,52 @@ int main(int argc, char *argv[])
 	  if (cropwidth && cropheight) {
 	    cropping = true;
 	    if (verbose == true) {
-	      printf ("Cropping area: x=%d, y=%d, width=%d, height=%d\n",
+	      kprintf ("Cropping area: x=%d, y=%d, width=%d, height=%d\n",
 		      cropx, cropy, cropwidth, cropheight);
 	    }
 	  }
 	  else {
 	    cropping = false;
-	    fprintf (stderr, "Error parsing the cropping area: %s\n", optarg);
+	    kprintf ("Error parsing the cropping area: %s\n", optarg);
 	    exit(EXIT_FAILURE);
 	  }
 	  break;
 
+	case '?':
         default:
 
-            fprintf(stderr, "Usage: %s [-p pngname] [-v]", program);
-            fprintf(stderr, " [-w <width>] [-h <height>] [-t <type>]");
-            fprintf(stderr, " [-d <delay>] [-c <x,y,width,height>]\n");
-	    fprintf(stderr, " [-a <application>]\n");
+            printf("Usage: %s [-p pngname] [-v]", program);
+            printf(" [-w <width>] [-h <height>] [-t <type>]");
+            printf(" [-d <delay>] [-c <x,y,width,height>]\n");
+	    printf(" [-a <application>]\n");
 
-            fprintf(stderr, "    -p - name of png file to create ");
-            fprintf(stderr, "(default is %s)\n", pngName);
-            fprintf(stderr, "    -v - verbose\n");
+            printf("    -p - name of png file to create ");
+            printf("(default is %s)\n", pngName);
+            printf("    -v - verbose\n");
 
-            fprintf(stderr,
+            printf(
                     "    -h - image height (default is screen height)\n");
-            fprintf(stderr,
+            printf(
                     "    -w - image width (default is screen width)\n");
-            fprintf(stderr,
+            printf(
                     "    -c - crop area off the screenshot by given coordinates (default is full screen)\n");
-            fprintf(stderr,
+            printf(
                     "    -a - crop area off the screenshot occupied by X11 application window name (as reported by xwininfo)\n");
-            fprintf(stderr,
+            printf(
                     "    -l - list of all X11 application window names to help using the -a option\n");
-            fprintf(stderr,
+            printf(
                     "    -p - override output image filename (default is kano-screenshot-timestamp.png\n");
-            fprintf(stderr, "    -t - type of image captured\n");
-            fprintf(stderr, "         can be one of the following:");
+            printf("    -t - type of image captured\n");
+            printf("         can be one of the following:");
 
             size_t entry = 0;
             for (entry = 0; entry < imageEntries; entry++)
             {
-                fprintf(stderr, " %s", imageInfo[entry].name);
+                kprintf(" %s", imageInfo[entry].name);
             }
-            fprintf(stderr, "\n");
-            fprintf(stderr, "    -d - delay in seconds (default 0)\n");
-            fprintf(stderr, "\n");
+            printf("\n");
+            printf("    -d - delay in seconds (default 0)\n");
+            printf("\n");
 
             exit(EXIT_FAILURE);
             break;
@@ -378,7 +385,7 @@ int main(int argc, char *argv[])
 
     if (imageType == VC_IMAGE_MIN)
     {
-        fprintf(stderr,
+      kprintf(
                 "%s: unknown image type %s\n",
                 program,
                 imageTypeName);
@@ -392,7 +399,7 @@ int main(int argc, char *argv[])
     {
         if (verbose)
         {
-            printf("sleeping for %d seconds ...\n", delay);
+            kprintf("sleeping for %d seconds ...\n", delay);
         }
 
         sleep(delay);
@@ -409,7 +416,7 @@ int main(int argc, char *argv[])
 
     if (result != 0)
     {
-        fprintf(stderr, "%s: unable to get display information\n", program);
+        kprintf("%s: unable to get display information\n", program);
 	bcm_host_deinit();
         exit(EXIT_FAILURE);
     }
@@ -418,24 +425,21 @@ int main(int argc, char *argv[])
     int height = modeInfo.height;
     int pitch = bytesPerPixel * ALIGN_TO_16(width);
 
-    if (verbose)
-    {
-        printf("screen width = %d\n", modeInfo.width);
-        printf("screen height = %d\n", modeInfo.height);
-        printf("requested width = %d\n", requestedWidth);
-        printf("requested height = %d\n", requestedHeight);
-        printf("image width = %d\n", width);
-        printf("image height = %d\n", height);
-        printf("image type = %s\n", imageTypeName);
-        printf("bytes per pixel = %d\n", bytesPerPixel);
-        printf("pitch = %d\n", pitch);
-    }
+    kprintf("screen width = %d\n", modeInfo.width);
+    kprintf("screen height = %d\n", modeInfo.height);
+    kprintf("requested width = %d\n", requestedWidth);
+    kprintf("requested height = %d\n", requestedHeight);
+    kprintf("image width = %d\n", width);
+    kprintf("image height = %d\n", height);
+    kprintf("image type = %s\n", imageTypeName);
+    kprintf("bytes per pixel = %d\n", bytesPerPixel);
+    kprintf("pitch = %d\n", pitch);
 
     void *dmxImagePtr = malloc(pitch * height);
 
     if (dmxImagePtr == NULL)
     {
-        fprintf(stderr, "%s: unable to allocated image buffer\n", program);
+        kprintf("%s: unable to allocated image buffer\n", program);
 	bcm_host_deinit();
         exit(EXIT_FAILURE);
     }
@@ -453,7 +457,7 @@ int main(int argc, char *argv[])
 
     if (verbose)
     {
-        printf("vc_dispmanx_snapshot() returned %d\n", result);
+        kprintf("vc_dispmanx_snapshot() returned %d\n", result);
     }
 
     if (result != 0)
@@ -461,7 +465,7 @@ int main(int argc, char *argv[])
         vc_dispmanx_resource_delete(resourceHandle);
         vc_dispmanx_display_close(displayHandle);
 
-        fprintf(stderr, "%s: vc_dispmanx_snapshot() failed\n", program);
+        kprintf("%s: vc_dispmanx_snapshot() failed\n", program);
 	bcm_host_deinit();
         exit(EXIT_FAILURE);
     }
@@ -472,7 +476,7 @@ int main(int argc, char *argv[])
     if (verbose)
     {
         printf("vc_dispmanx_rect_set() returned %d\n", result);
-        printf("rect = { %d, %d, %d, %d }\n",
+        kprintf("rect = { %d, %d, %d, %d }\n",
                rect.x,
                rect.y,
                rect.width,
@@ -484,7 +488,7 @@ int main(int argc, char *argv[])
         vc_dispmanx_resource_delete(resourceHandle);
         vc_dispmanx_display_close(displayHandle);
 
-        fprintf(stderr, "%s: vc_dispmanx_rect_set() failed\n", program);
+        kprintf("%s: vc_dispmanx_rect_set() failed\n", program);
 	bcm_host_deinit();
         exit(EXIT_FAILURE);
     }
@@ -500,8 +504,7 @@ int main(int argc, char *argv[])
         vc_dispmanx_resource_delete(resourceHandle);
         vc_dispmanx_display_close(displayHandle);
 
-        fprintf(stderr,
-                "%s: vc_dispmanx_resource_read_data() failed\n",
+        kprintf("%s: vc_dispmanx_resource_read_data() failed\n",
                 program);
 
 	bcm_host_deinit();
@@ -510,21 +513,21 @@ int main(int argc, char *argv[])
 
     if (verbose)
     {
-        printf("vc_dispmanx_resource_read_data() returned %d\n", result);
+        kprintf("vc_dispmanx_resource_read_data() returned %d\n", result);
     }
 
     result = vc_dispmanx_resource_delete(resourceHandle);
 
     if (verbose)
     {
-        printf("vc_dispmanx_resource_delete() returned %d\n", result);
+        kprintf("vc_dispmanx_resource_delete() returned %d\n", result);
     }
 
     result = vc_dispmanx_display_close(displayHandle);
 
     if (verbose)
     {
-        printf("vc_dispmanx_display_close() returned %d\n", result);
+        kprintf("vc_dispmanx_display_close() returned %d\n", result);
     }
 
     // Do the screenshot cropping if requested.
@@ -532,12 +535,12 @@ int main(int argc, char *argv[])
 
       void *dmxCroppedImagePtr = calloc (cropheight, pitch);
       if (!dmxCroppedImagePtr) {
-	fprintf(stderr, "%s: unable to allocated cropping buffer\n", program);
+	kprintf("%s: unable to allocated cropping buffer\n", program);
 	exit(EXIT_FAILURE);
       }
       else {
 	// Extract the requested area from the complete screenshot
-	printf ("Cropping screenshot area @%dx%d size %dx%d\n", cropx, cropy, cropwidth, cropheight);
+	kprintf ("Cropping screenshot area @%dx%d size %dx%d\n", cropx, cropy, cropwidth, cropheight);
 
 	// Crop image off screenshot, then swap the image buffers so that png saves the cropped image instead
 	crop (dmxImagePtr, dmxCroppedImagePtr, ALIGN_TO_16(width), height, cropx, cropy, ALIGN_TO_16(cropwidth), cropheight, bytesPerPixel);
@@ -554,7 +557,7 @@ int main(int argc, char *argv[])
     if ((requestedWidth > 0 || requestedHeight > 0) && cropping == true)
       {
 	// TODO: A crop followed by a resize needs the image buffer be rescaled, so not implemented yet
-	printf ("Crop followed by resize is not implemented yet\n");
+	kprintf ("Crop followed by resize is not implemented yet\n");
 	exit(EXIT_FAILURE);
       }
 
@@ -571,7 +574,7 @@ int main(int argc, char *argv[])
 	  }
 
 	if (verbose == true) {
-	  printf ("Rescaling width: new width=%d, height=%d\n", width, height);
+	  kprintf ("Rescaling width: new width=%d, height=%d\n", width, height);
 	}
       }
 
@@ -588,7 +591,7 @@ int main(int argc, char *argv[])
 	  }
 
 	if (verbose == true) {
-	  printf ("Rescaling height: new width=%d, height=%d\n", width, height);
+	  kprintf ("Rescaling height: new width=%d, height=%d\n", width, height);
 	}
       }
 
@@ -603,8 +606,7 @@ int main(int argc, char *argv[])
 
     if (pngPtr == NULL)
     {
-        fprintf(stderr,
-                "%s: unable to allocated PNG write structure\n",
+        kprintf("%s: unable to allocated PNG write structure\n",
                 program);
 
 	bcm_host_deinit();
@@ -615,8 +617,7 @@ int main(int argc, char *argv[])
 
     if (infoPtr == NULL)
     {
-        fprintf(stderr,
-                "%s: unable to allocated PNG info structure\n",
+        kprintf("%s: unable to allocated PNG info structure\n",
                 program);
 
 	bcm_host_deinit();
@@ -625,7 +626,7 @@ int main(int argc, char *argv[])
 
     if (setjmp(png_jmpbuf(pngPtr)))
     {
-        fprintf(stderr, "%s: unable to create PNG\n", program);
+        kprintf("%s: unable to create PNG\n", program);
 	bcm_host_deinit();
         exit(EXIT_FAILURE);
     }
@@ -634,8 +635,7 @@ int main(int argc, char *argv[])
 
     if (pngfp == NULL)
     {
-        fprintf(stderr,
-                "%s: unable to create %s - %s\n",
+        kprintf("%s: unable to create %s - %s\n",
                 program,
                 pngName,
                 strerror(errno));

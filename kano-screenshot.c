@@ -300,7 +300,7 @@ int main(int argc, char *argv[])
 	  }
 	  else {
 	    fprintf (stderr, "Could not find coordinates of X11 application name: %s\n", appname);
-	    exit (1);
+	    exit(EXIT_FAILURE);
 	  }
 	  break;
 
@@ -319,7 +319,7 @@ int main(int argc, char *argv[])
 	  else {
 	    cropping = false;
 	    fprintf (stderr, "Error parsing the cropping area: %s\n", optarg);
-	    exit (1);
+	    exit(EXIT_FAILURE);
 	  }
 	  break;
 
@@ -533,7 +533,7 @@ int main(int argc, char *argv[])
       void *dmxCroppedImagePtr = calloc (cropheight, pitch);
       if (!dmxCroppedImagePtr) {
 	fprintf(stderr, "%s: unable to allocated cropping buffer\n", program);
-	exit (1);
+	exit(EXIT_FAILURE);
       }
       else {
 	// Extract the requested area from the complete screenshot
@@ -550,6 +550,13 @@ int main(int argc, char *argv[])
       }
     }
 
+
+    if ((requestedWidth > 0 || requestedHeight > 0) && cropping == true)
+      {
+	// TODO: A crop followed by a resize needs the image buffer be rescaled, so not implemented yet
+	printf ("Crop followed by resize is not implemented yet\n");
+	exit(EXIT_FAILURE);
+      }
 
     if (requestedWidth > 0)
       {

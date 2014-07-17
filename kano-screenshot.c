@@ -317,10 +317,9 @@ int main(int argc, char *argv[])
 	    kprintf ("Could not find application name: '%s'\n", appname);
 	    exit (EXIT_FAILURE);
 	  }
-	  else {
-	    kprintf ("Cropping application name '%s' (x=%d, y=%d, width=%d, height=%d)\n",
-		     appname, cropx, cropy, cropwidth, cropheight);
-	  }
+
+	  kprintf ("Cropping application name '%s' (x=%d, y=%d, width=%d, height=%d)\n",
+		   appname, cropx, cropy, cropwidth, cropheight);
 	  break;
 
 	case 'c':

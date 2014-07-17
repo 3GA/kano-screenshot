@@ -239,6 +239,7 @@ int main(int argc, char *argv[])
 
     // -c parameter variables
     bool cropping = false;
+    bool appfound = false;
     int cropx=0, cropy=0, cropwidth=0, cropheight=0;
 
     // -a parameter variables
@@ -292,21 +293,33 @@ int main(int argc, char *argv[])
 	  // list all X11 window names that kano-screenshot can find
 	  printf ("list of X11 windows from which a screen shot can be taken\n");
 	  printf ("use the -a flag along with the complete window name\n\n");
-	  bool appfound = findWindowCoordinatesByName (NULL, true, NULL, NULL, NULL, NULL);
+	  appfound = findWindowCoordinatesByName (NULL, true, NULL, NULL, NULL, NULL);
 	  exit (0);
 
 	case 'a':
 	  // cropping based on a X11 app window name
 	  appname = optarg;
 	  appfound = findWindowCoordinatesByName (appname, verbose, &cropx, &cropy, &cropwidth, &cropheight);
-	  if (appfound == true) {
-	    cropping = true;
-	    kprintf ("Cropping application name '%s' (x=%d, y=%d, width=%d, height=%d)\n",
-		    appname, cropx, cropy, cropwidth, cropheight);
+	  while (delay > 0 && appfound == false) {
+	    kprintf ("Application window not found, waiting and retrying...\n");
+	    sleep (1);
+	    appfound = findWindowCoordinatesByName (appname, verbose, &cropx, &cropy, &cropwidth, &cropheight);
+	    if (appfound == true) {
+	      cropping = true;
+	      break;
+	    }
+	    else {
+	      delay--;
+	    }
+	  }
+
+	  if (appfound == false) {
+	    kprintf ("Could not find application name: '%s'\n", appname);
+	    exit (EXIT_FAILURE);
 	  }
 	  else {
-	    kprintf ("Could not find coordinates of X11 application name: %s\n", appname);
-	    exit(EXIT_FAILURE);
+	    kprintf ("Cropping application name '%s' (x=%d, y=%d, width=%d, height=%d)\n",
+		     appname, cropx, cropy, cropwidth, cropheight);
 	  }
 	  break;
 
@@ -395,7 +408,7 @@ int main(int argc, char *argv[])
 
     //-------------------------------------------------------------------
 
-    if (delay)
+    if (delay && (appfound == false))
     {
         if (verbose)
         {

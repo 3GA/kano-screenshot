@@ -235,7 +235,7 @@ int main(int argc, char *argv[])
 
     int requestedWidth = 0;
     int requestedHeight = 0;
-    int delay = 0;
+    int delay = 0, retry = 0;
 
     // -c parameter variables
     bool cropping = false;
@@ -298,9 +298,10 @@ int main(int argc, char *argv[])
 
 	case 'a':
 	  // cropping based on a X11 app window name
+	  retry=delay;
 	  appname = optarg;
 	  appfound = findWindowCoordinatesByName (appname, verbose, &cropx, &cropy, &cropwidth, &cropheight);
-	  while (delay > 0 && appfound == false) {
+	  while (retry > 0 && appfound == false) {
 	    kprintf ("Application window not found, waiting and retrying...\n");
 	    sleep (1);
 	    appfound = findWindowCoordinatesByName (appname, verbose, &cropx, &cropy, &cropwidth, &cropheight);
@@ -309,7 +310,7 @@ int main(int argc, char *argv[])
 	      break;
 	    }
 	    else {
-	      delay--;
+	      retry--;
 	    }
 	  }
 
@@ -317,9 +318,10 @@ int main(int argc, char *argv[])
 	    kprintf ("Could not find application name: '%s'\n", appname);
 	    exit (EXIT_FAILURE);
 	  }
-
-	  kprintf ("Cropping application name '%s' (x=%d, y=%d, width=%d, height=%d)\n",
-		   appname, cropx, cropy, cropwidth, cropheight);
+	  else {
+	    kprintf ("Application window '%s' found\n", appname);
+	    cropping = true;
+	  }
 	  break;
 
 	case 'c':
@@ -407,7 +409,7 @@ int main(int argc, char *argv[])
 
     //-------------------------------------------------------------------
 
-    if (delay && (appfound == false))
+    if (delay)
     {
         if (verbose)
         {

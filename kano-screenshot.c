@@ -34,6 +34,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <time.h>
 
 #include "bcm_host.h"
 
@@ -225,13 +226,37 @@ int crop (unsigned char *source, unsigned char *target, int sourcew, int sourceh
   return 0;
 }
 
+
+char *buildScreenshotFilename(char *filename, int size)
+{
+  struct tm *p;
+  time_t t;
+  char pchTime[128];
+  char *prefix="kano-screenshot";
+
+  if (size < strlen (prefix) + 32) {
+    return NULL;
+  }
+
+  t = time(NULL);
+  p = localtime(&t);
+  strftime (pchTime, sizeof(pchTime), "-%a-%b-%d-%H-%M-%S", p);
+
+  strcpy (filename, "kano-screenshot");
+  strcat (filename, pchTime);
+  strcat (filename, ".png");
+  return filename;
+}
+
+
 //-----------------------------------------------------------------------
 
 int main(int argc, char *argv[])
 {
     int opt = 0;
 
-    char *pngName = "kano-screenshot.png";
+    char defaultPngName[256];
+    char *pngName=defaultPngName;
 
     int requestedWidth = 0;
     int requestedHeight = 0;
@@ -254,6 +279,11 @@ int main(int argc, char *argv[])
     program = basename(argv[0]);
 
     //-------------------------------------------------------------------
+
+    // Screenshot filename
+    if (!buildScreenshotFilename ((char *) defaultPngName, sizeof(defaultPngName))) {
+      strcpy (defaultPngName, "kano-screenshot.png");
+    }
 
     while ((opt = getopt(argc, argv, "d:h:p:t:vw:c:a:l?")) != -1)
     {
@@ -352,7 +382,7 @@ int main(int argc, char *argv[])
 	    printf(" [-a <application>]\n");
 
             printf("    -p - name of png file to create ");
-            printf("(default is %s)\n", pngName);
+            printf("(default is kano-screenshot-timestamp.png)\n");
             printf("    -v - verbose\n");
 
             printf(
@@ -366,7 +396,7 @@ int main(int argc, char *argv[])
             printf(
                     "    -l - list of all X11 application window names to help using the -a option\n");
             printf(
-                    "    -p - override output image filename (default is kano-screenshot-timestamp.png\n");
+                    "    -p - override output image filename (may include pathname)\n");
             printf("    -t - type of image captured\n");
             printf("         can be one of the following:");
 

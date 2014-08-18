@@ -449,6 +449,7 @@ int main(int argc, char *argv[])
         sleep(delay);
     }
 
+
     //-------------------------------------------------------------------
 
     bcm_host_init();
@@ -467,7 +468,45 @@ int main(int argc, char *argv[])
 
     int width = modeInfo.width;
     int height = modeInfo.height;
+
+
+    if (requestedWidth > 0)
+      {
+        width = (requestedWidth > width ? width : requestedWidth);
+	
+        if (requestedHeight == 0)
+	  {
+            double numerator = height * requestedWidth;
+            double denominator = width;
+	    
+            height = (int)ceil(numerator / denominator);
+	  }
+
+	if (verbose == true) {
+	  kprintf ("Rescaling width: new width=%d, height=%d\n", width, height);
+	}
+      }
+
+    if (requestedHeight > 0)
+      {
+	height = (requestedHeight > height ? height : requestedHeight);
+	
+        if (requestedWidth == 0)
+	  {
+	    double numerator = width * requestedHeight;
+            double denominator = height;
+	    
+            width = (int)ceil(numerator / denominator);
+	  }
+
+	if (verbose == true) {
+	  kprintf ("Rescaling height: new width=%d, height=%d\n", width, height);
+	}
+      }
+
+
     int pitch = bytesPerPixel * ALIGN_TO_16(width);
+
 
     kprintf("screen width = %d\n", modeInfo.width);
     kprintf("screen height = %d\n", modeInfo.height);
@@ -478,6 +517,8 @@ int main(int argc, char *argv[])
     kprintf("image type = %s\n", imageTypeName);
     kprintf("bytes per pixel = %d\n", bytesPerPixel);
     kprintf("pitch = %d\n", pitch);
+
+
 
     void *dmxImagePtr = malloc(pitch * height);
 
@@ -575,7 +616,7 @@ int main(int argc, char *argv[])
     }
 
     // Do the screenshot cropping if requested.
-    if (cropping) {
+    if (cropping == true) {
 
       void *dmxCroppedImagePtr = calloc (cropheight, pitch);
       if (!dmxCroppedImagePtr) {
@@ -595,6 +636,9 @@ int main(int argc, char *argv[])
 	width = cropwidth;
 	height = cropheight;
       }
+
+      pitch = bytesPerPixel * ALIGN_TO_16(width);
+
     }
 
 
@@ -603,40 +647,6 @@ int main(int argc, char *argv[])
 	// TODO: A crop followed by a resize needs the image buffer be rescaled, so not implemented yet
 	kprintf ("Crop followed by resize is not implemented yet\n");
 	exit(EXIT_FAILURE);
-      }
-
-    if (requestedWidth > 0)
-      {
-        width = (requestedWidth > width ? width : requestedWidth);
-	
-        if (requestedHeight == 0)
-	  {
-            double numerator = height * requestedWidth;
-            double denominator = width;
-	    
-            height = (int)ceil(numerator / denominator);
-	  }
-
-	if (verbose == true) {
-	  kprintf ("Rescaling width: new width=%d, height=%d\n", width, height);
-	}
-      }
-
-    if (requestedHeight > 0)
-      {
-	height = (requestedHeight > height ? height : requestedHeight);
-	
-        if (requestedWidth == 0)
-	  {
-	    double numerator = width * requestedHeight;
-            double denominator = height;
-	    
-            width = (int)ceil(numerator / denominator);
-	  }
-
-	if (verbose == true) {
-	  kprintf ("Rescaling height: new width=%d, height=%d\n", width, height);
-	}
       }
 
     //-------------------------------------------------------------------

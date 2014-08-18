@@ -639,8 +639,6 @@ int main(int argc, char *argv[])
 	}
       }
 
-    pitch = bytesPerPixel * ALIGN_TO_16(width);
-
     //-------------------------------------------------------------------
 
     png_structp pngPtr = png_create_write_struct(PNG_LIBPNG_VER_STRING,

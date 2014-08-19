@@ -302,6 +302,10 @@ int main(int argc, char *argv[])
         case 'h':
 
             requestedHeight = atoi(optarg);
+            if (!requestedHeight) {
+              kprintf ("Invalid Height requested: %s\n", optarg);
+              exit (1);
+            }
             break;
 
         case 'p':
@@ -317,6 +321,10 @@ int main(int argc, char *argv[])
         case 'w':
 
             requestedWidth = atoi(optarg);
+            if (!requestedWidth) {
+              kprintf ("Invalid Width requested: %s\n", optarg);
+              exit (1);
+            }
             break;
 
 	case 'l':
@@ -472,36 +480,34 @@ int main(int argc, char *argv[])
 
     if (requestedWidth > 0)
       {
-        width = (requestedWidth > width ? width : requestedWidth);
+        // avoid larger widths than the screen fits
+        requestedWidth = (requestedWidth > width ? width : requestedWidth);
 	
         if (requestedHeight == 0)
 	  {
             double numerator = height * requestedWidth;
             double denominator = width;
-	    
             height = (int)ceil(numerator / denominator);
 	  }
 
-	if (verbose == true) {
-	  kprintf ("Rescaling width: new width=%d, height=%d\n", width, height);
-	}
+        width = requestedWidth;
+        kprintf ("Rescaling width: new width=%d, height=%d\n", width, height);
       }
 
     if (requestedHeight > 0)
       {
-	height = (requestedHeight > height ? height : requestedHeight);
+        // avoid larger heights than the screen fits
+        requestedHeight = (requestedHeight > height ? height : requestedHeight);
 	
         if (requestedWidth == 0)
 	  {
 	    double numerator = width * requestedHeight;
             double denominator = height;
-	    
             width = (int)ceil(numerator / denominator);
 	  }
 
-	if (verbose == true) {
-	  kprintf ("Rescaling height: new width=%d, height=%d\n", width, height);
-	}
+        height = requestedHeight;
+        kprintf ("Rescaling height: new width=%d, height=%d\n", width, height);
       }
 
 

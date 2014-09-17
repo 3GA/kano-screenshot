@@ -227,22 +227,38 @@ int crop (unsigned char *source, unsigned char *target, int sourcew, int sourceh
 }
 
 
-char *buildScreenshotFilename(char *filename, int size)
+char *buildScreenshotFilename(char *directory, char *filename, int size)
 {
   struct tm *p;
   time_t t;
   char pchTime[128];
   char *prefix="kano-screenshot";
+  int needed_size=strlen (prefix) + 32;
+  char *base_filename="kano-screenshot";
 
-  if (size < strlen (prefix) + 32) {
+  if (directory) {
+    needed_size += strlen(directory) + sizeof(char);
+  }
+
+  if (size < needed_size) {
     return NULL;
   }
 
   t = time(NULL);
   p = localtime(&t);
+
+  // week day, month name, month day, hour, minute, seconds
   strftime (pchTime, sizeof(pchTime), "-%a-%b-%d-%H-%M-%S", p);
 
-  strcpy (filename, "kano-screenshot");
+  if (directory) {
+    strcpy (filename, directory);
+    strcat (filename, "/");
+    strcat (filename, base_filename);
+  }
+  else {
+    strcpy (filename, base_filename);
+  }
+
   strcat (filename, pchTime);
   strcat (filename, ".png");
   return filename;
@@ -257,6 +273,8 @@ int main(int argc, char *argv[])
 
     char defaultPngName[256];
     char *pngName=defaultPngName;
+    char *image_filename=NULL;
+    char *directory_name=NULL;
 
     int requestedWidth = 0;
     int requestedHeight = 0;
@@ -280,27 +298,19 @@ int main(int argc, char *argv[])
 
     //-------------------------------------------------------------------
 
-    // Screenshot filename
-    if (!buildScreenshotFilename ((char *) defaultPngName, sizeof(defaultPngName))) {
-      strcpy (defaultPngName, "kano-screenshot.png");
-    }
-
-    while ((opt = getopt(argc, argv, "d:h:p:t:vw:c:a:l?")) != -1)
+    while ((opt = getopt(argc, argv, "d:h:p:f:t:vw:c:a:l?")) != -1)
     {
         switch (opt)
         {
         case 'v':
-
             verbose = true;
             break;
 
         case 'd':
-
             delay = atoi(optarg);
             break;
 
         case 'h':
-
             requestedHeight = atoi(optarg);
             if (!requestedHeight) {
               kprintf ("Invalid Height requested: %s\n", optarg);
@@ -309,17 +319,18 @@ int main(int argc, char *argv[])
             break;
 
         case 'p':
+            image_filename = optarg;
+            break;
 
-            pngName = optarg;
+        case 'f':
+            directory_name = optarg;
             break;
 
         case 't':
-
             imageTypeName = optarg;
             break;
 
         case 'w':
-
             requestedWidth = atoi(optarg);
             if (!requestedWidth) {
               kprintf ("Invalid Width requested: %s\n", optarg);
@@ -384,42 +395,58 @@ int main(int argc, char *argv[])
 	case '?':
         default:
 
-            printf("Usage: %s [-p pngname] [-v]", program);
-            printf(" [-w <width>] [-h <height>] [-t <type>]");
-            printf(" [-d <delay>] [-c <x,y,width,height>]\n");
-	    printf(" [-a <application>]\n");
+            printf("Usage:\n %s [-?] [-p pngname] [-f folder] [-v] ", program);
+            printf("[-w <width>] [-h <height>] [-t <type>]\n");
+            printf("\t\t[-d <delay>] [-c <x,y,width,height>] [-a <application>] [-l]\n\n");
 
-            printf("    -p - name of png file to create ");
-            printf("(default is kano-screenshot-timestamp.png)\n");
-            printf("    -v - verbose\n");
-
-            printf(
-                    "    -h - image height (default is screen height)\n");
-            printf(
-                    "    -w - image width (default is screen width)\n");
-            printf(
-                    "    -c - crop area off the screenshot by given coordinates (default is full screen)\n");
-            printf(
-                    "    -a - crop area off the screenshot occupied by X11 application window name (as reported by xwininfo)\n");
-            printf(
-                    "    -l - list of all X11 application window names to help using the -a option\n");
-            printf(
-                    "    -p - override output image filename (may include pathname)\n");
-            printf("    -t - type of image captured\n");
-            printf("         can be one of the following:");
+            printf( "    -? - this help screen\n");
+            printf( "    -p - name of png file to save ");
+            printf( "(default is kano-screenshot-timespamp.png)\n");
+            printf( "    -f - folder name, directory to save the screenshot file (can be combined with -p)\n");
+            printf( "    -v - verbose, explain the steps being done\n");
+            printf( "    -w - image width (default is screen width)\n");
+            printf( "    -h - image height (default is screen height)\n");
+            printf( "    -t - type of image to capture, can be one of:");
 
             size_t entry = 0;
             for (entry = 0; entry < imageEntries; entry++)
             {
-                kprintf(" %s", imageInfo[entry].name);
+              printf(" %s", imageInfo[entry].name);
             }
+
+            printf( "\n    -d - delay in seconds before taking the screenshot (default 0)\n");
+            printf( "    -c - crop area off the screenshot by given coordinates (default is full screen)\n");
+            printf( "    -a - crop area off the screenshot occupied by X11 application window name (as reported by xwininfo)\n");
+
+            printf( "    -l - list of all X11 applications that can be captured using the \"-a\" option\n");
+
             printf("\n");
-            printf("    -d - delay in seconds (default 0)\n");
             printf("\n");
 
             exit(EXIT_FAILURE);
             break;
         }
+    }
+
+
+    //-------------------------------------------------------------------
+
+    // Build screenshot complete directory and filename
+    if (!image_filename) {
+      if (!buildScreenshotFilename (directory_name, (char *) defaultPngName, sizeof(defaultPngName))) {
+        strcpy (defaultPngName, "kano-screenshot.png");
+        kprintf ("Warning: Could not build file pathname, saving image to: %s\n", defaultPngName);
+      }
+    }
+    else {
+      if (directory_name) {
+        strcat (defaultPngName, directory_name);
+        strcat (defaultPngName, "/");
+        strcat (defaultPngName, image_filename);
+      }
+      else {
+        strcpy (defaultPngName, image_filename);
+      }
     }
 
     //-------------------------------------------------------------------

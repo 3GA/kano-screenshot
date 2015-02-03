@@ -1,38 +1,14 @@
-# Makefile
-# 
-# Copyright (C) 2014 Kano Computing Ltd.
-# License: http://www.gnu.org/licenses/gpl-2.0.txt GNU General Public License v2
-# 
-# Makefile to build kano-screenshot and prototype
-# 
-#  "make" or "make all" will build kano-screenshot
-#  "make prototype" will build the latter
+#
+#  Makefile - builds kano-screenshot
+#
 
+all: kano-screenshot
 
-OBJS=kano-screenshot.o xwindows.o
-BIN=kano-screenshot
-
-CFLAGS+=-Wall -g -O3 $(shell libpng-config --cflags)
-LDFLAGS+=-L/opt/vc/lib/ -lbcm_host $(shell libpng-config --ldflags) -lX11
-INCLUDES+=-I/opt/vc/include/ -I/opt/vc/include/interface/vcos/pthreads -I/opt/vc/include/interface/vmcs_host/linux
-
-.PHONY: prototype
-
-all: $(BIN)
+kano-screenshot:
+	cd src && make all
 
 debug:
-	make CDEBUG="-ggdb -O3 -DDEBUG" all
-
-prototype:
-	cd prototype && make
-
-%.o: %.c
-	@rm -f $@ 
-	$(CC) $(CFLAGS) $(INCLUDES) $(CDEBUG) -c $< -o $@ -Wno-deprecated-declarations
-
-$(BIN): $(OBJS)
-	$(CC) -o $@ -Wl,--whole-archive $(OBJS) $(LDFLAGS) -Wl,--no-whole-archive -rdynamic
+	cd src && make debug -B
 
 clean:
-	@rm -f $(OBJS)
-	@rm -f $(BIN)
+	cd src && make clean

@@ -1,20 +1,23 @@
 kano-screenshot
 ===============
 
-Helper tool to take screenshots in Kanux.
+The RaspberryPI graphical processing unit on the chip comes with powerful features 
+which allow applications to draw on the display using multiple "layers".
 
-It is based on the tool raspi2png from Andrew:
+Most applications on KanoOS will use the XServer, which occupies only one of the many graphical layers available on the chip.
+Other applications will use different graphical layers, which are invisible to the XServer applications and most times 
+will sit on top of it. Minecraft, OMXPlayer, and XBMC are some examples.
+
+This is why most X11 screenshot programs fail to capture these applications, and here is where kano-screenshot is useful.
+It will capture everything that all combined layers are currently displaying on your screen.
+
+Kano screenshot is based on the tool raspi2png from Andrew:
 
   https://github.com/AndrewFromMelbourne/raspi2png
 
-It can take screenshots of applications drawing on different layers
-of the RaspberryPI GPU surfaces, where other tools like scrot cannot.
+It also is capable of cropping areas from the screen, and capture areas occupied by X11 applications given by name.
 
-This is the case with applications like Minecraft.
-
-It also is capable of cropping areas from the screenshot by coordinates and by application name.
-
-When invoked without parameters it defaults to taking a complete screenshot saved in the file kano-screenshot.png
+When invoked without parameters it defaults to taking a complete screenshot and will be saved in the file ```kano-screenshot.png```
 on the current directory.
 
 Here's a practical usage transcript to better understand how to use it.

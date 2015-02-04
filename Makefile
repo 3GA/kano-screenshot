@@ -1,5 +1,7 @@
 #
-#  Makefile - builds kano-screenshot
+# Makefile - builds kano-screenshot
+# 
+# Copyright (C) 2014, 2015 Kano Computing Ltd.
 #
 
 all: kano-screenshot

@@ -390,7 +390,7 @@ int main(int argc, char *argv[])
 
             printf("Usage:\n %s [-?] [-p pngname] [-f folder] [-v] ", program);
             printf("[-w <width>] [-h <height>] [-t <type>]\n");
-            printf("\t\t[-d <delay>] [-c <x,y,width,height>] [-a <application>] [-l]\n\n");
+            printf("\t\t [-d <delay>] [-c <x,y,width,height>] [-a <application>] [-l]\n\n");
 
             printf( "    -? - this help screen\n");
             printf( "    -p - name of png file to save ");

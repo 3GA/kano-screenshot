@@ -25,7 +25,14 @@
 //
 //-------------------------------------------------------------------------
 
-#define _GNU_SOURCE
+//
+// kano-screenshot.cpp
+//
+// Copyright (C) 2014, 2015 Computing Ltd.
+// License: http://www.gnu.org/licenses/gpl-2.0.txt GNU General Public License v2
+//
+// Application that takes screenshots on the RaspberryPI from all GPU layers
+//
 
 #include <math.h>
 #include <png.h>
@@ -37,9 +44,7 @@
 #include <time.h>
 
 #include "bcm_host.h"
-
 #include "xwindows.h"
-
 
 // A printf macro sensitive to the -v (verbose) flag
 // Use kprintf for regular stdout messages instead of printf or cout
@@ -47,17 +52,11 @@ bool verbose=false; // Mute by default
 #define kprintf(fmt, ...) ( ((verbose==false) ? 1 : printf(fmt, ##__VA_ARGS__) ))
 
 
-//-----------------------------------------------------------------------
-
 #ifndef ALIGN_TO_16
 #define ALIGN_TO_16(x)  ((x + 15) & ~15)
 #endif
 
-//-----------------------------------------------------------------------
-
 const char* program = NULL;
-
-//-----------------------------------------------------------------------
 
 typedef struct
 {
@@ -67,23 +66,17 @@ typedef struct
 }
 ImageInfo;
 
-#define IMAGE_INFO_ENTRY(t, b) \
-    { .name=(#t), .type=(VC_IMAGE_ ## t), .bytesPerPixel=(b) }
-
 ImageInfo imageInfo[] =
 {
-  IMAGE_INFO_ENTRY(RGB565, 2),
-  IMAGE_INFO_ENTRY(RGB888, 3),
-  IMAGE_INFO_ENTRY(RGBA16, 2),
-  IMAGE_INFO_ENTRY(RGBA32, 4)
+    { "RGB565", VC_IMAGE_RGB565, 2 },
+    { "RGB888", VC_IMAGE_RGB888, 3 },
+    { "RGBA16", VC_IMAGE_RGBA16, 2 },
+    { "RGBA32", VC_IMAGE_RGBA32, 4 }
 };
 
 static size_t imageEntries = sizeof(imageInfo)/sizeof(imageInfo[0]);
 
-//-----------------------------------------------------------------------
-
-void
-pngWriteImageRGB565(
+void pngWriteImageRGB565(
     int width,
     int height,
     int pitch,
@@ -92,7 +85,7 @@ pngWriteImageRGB565(
     png_infop infoPtr)
 {
     int rowLength = 3 * width;
-    uint8_t *imageRow = malloc(rowLength);
+    uint8_t *imageRow = (uint8_t *) calloc(rowLength, 1);
 
     if (imageRow == NULL)
     {
@@ -106,7 +99,7 @@ pngWriteImageRGB565(
         int x = 0;
         for (x = 0; x < width; x++)
         {
-            uint16_t pixels = *(uint16_t*)(buffer + (y * pitch) + (x * 2));
+            uint16_t pixels = *(uint16_t*)((uint16_t*)buffer + (y * pitch) + (x * 2));
             int index = x * 3;
 
             uint8_t r5 = (pixels >> 11) & 0x1F;
@@ -138,7 +131,7 @@ pngWriteImageRGB888(
     int y = 0;
     for (y = 0; y < height; y++)
     {
-        png_write_row(pngPtr, buffer + (pitch * y));
+        png_write_row(pngPtr, (png_bytep) buffer + (pitch * y));
     }
 }
 
@@ -154,7 +147,7 @@ pngWriteImageRGBA16(
     png_infop infoPtr)
 {
     int rowLength = 4 * width;
-    uint8_t *imageRow = malloc(rowLength);
+    uint8_t *imageRow = (uint8_t *) calloc(rowLength, 1);
 
     if (imageRow == NULL)
     {
@@ -168,7 +161,7 @@ pngWriteImageRGBA16(
         int x = 0;
         for (x = 0; x < width; x++)
         {
-            uint16_t pixels = *(uint16_t*)(buffer + (y * pitch) + (x * 2));
+            uint16_t pixels = *(uint16_t*)((uint16_t*)buffer + (y * pitch) + (x * 2));
             int index = x * 4;
 
             uint8_t r4 = (pixels >> 12) & 0xF;
@@ -202,7 +195,7 @@ pngWriteImageRGBA32(
     int y = 0;
     for (y = 0; y < height; y++)
     {
-        png_write_row(pngPtr, buffer + (pitch * y));
+        png_write_row(pngPtr, (png_bytep) buffer + (pitch * y));
     }
 }
 
@@ -211,16 +204,16 @@ pngWriteImageRGBA32(
  *  crop() extracts an area from one plain image (source) into another one (target) using bpp bytes per pixel
  *
  */
-int crop (unsigned char *source, unsigned char *target, int sourcew, int sourceh, int cropx, int cropy, int cropw, int croph, int bpp)
+int crop (png_bytep source, png_bytep target, int sourcew, int sourceh, int cropx, int cropy, int cropw, int croph, int bpp)
 {
   int y;
   for (y=0; y < croph; y++)
     {
-      // TODO: Error control for out-of-range cropping coordinates
-      //
-      memcpy ( (void*) target + (y * (cropw * bpp)),
-	       (void*) source + ((y + cropy) * sourcew * bpp + (cropx * bpp)), 
-	       cropw * bpp);
+        // TODO: Error control for out-of-range cropping coordinates
+        //
+        memcpy ( target + (y * (cropw * bpp)),
+                 source + ((y + cropy) * sourcew * bpp + (cropx * bpp)), 
+                 cropw * bpp);
     }
 
   return 0;
@@ -232,9 +225,9 @@ char *buildScreenshotFilename(char *directory, char *filename, int size)
   struct tm *p;
   time_t t;
   char pchTime[128];
-  char *prefix="kano-screenshot";
+  char *prefix=(char *) "kano-screenshot";
   int needed_size=strlen (prefix) + 32;
-  char *base_filename="kano-screenshot";
+  char *base_filename=(char *) "kano-screenshot";
 
   if (directory) {
     needed_size += strlen(directory) + sizeof(char);
@@ -397,7 +390,7 @@ int main(int argc, char *argv[])
 
             printf("Usage:\n %s [-?] [-p pngname] [-f folder] [-v] ", program);
             printf("[-w <width>] [-h <height>] [-t <type>]\n");
-            printf("\t\t[-d <delay>] [-c <x,y,width,height>] [-a <application>] [-l]\n\n");
+            printf("\t\t [-d <delay>] [-c <x,y,width,height>] [-a <application>] [-l]\n\n");
 
             printf( "    -? - this help screen\n");
             printf( "    -p - name of png file to save ");
@@ -661,7 +654,9 @@ int main(int argc, char *argv[])
 	kprintf ("Cropping screenshot area @%dx%d size %dx%d\n", cropx, cropy, cropwidth, cropheight);
 
 	// Crop image off screenshot, then swap the image buffers so that png saves the cropped image instead
-	crop (dmxImagePtr, dmxCroppedImagePtr, ALIGN_TO_16(width), height, cropx, cropy, ALIGN_TO_16(cropwidth), cropheight, bytesPerPixel);
+	crop ((png_bytep)dmxImagePtr, (png_bytep)dmxCroppedImagePtr, 
+              ALIGN_TO_16(width), height, cropx, cropy, ALIGN_TO_16(cropwidth), cropheight, bytesPerPixel);
+
 	free (dmxImagePtr);
 	dmxImagePtr = dmxCroppedImagePtr;
 
@@ -671,7 +666,6 @@ int main(int argc, char *argv[])
       }
 
       pitch = bytesPerPixel * ALIGN_TO_16(width);
-
     }
 
 

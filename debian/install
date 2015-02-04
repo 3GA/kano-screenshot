@@ -1,1 +1,2 @@
-kano-screenshot /usr/bin
+src/kano-screenshot /usr/bin
+tests/kano-screenshot-tests.sh /usr/share/doc/kano-screenshot

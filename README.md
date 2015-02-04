@@ -1,40 +1,44 @@
 kano-screenshot
 ===============
 
-Helper tool to take screenshots in Kanux.
+The RaspberryPI graphical processing unit on the chip comes with powerful features 
+which allow applications to draw on the display using multiple "layers".
 
-It is based on the tool raspi2png from Andrew:
+Most applications on KanoOS will use the XServer, which occupies only one of the many graphical layers available on the chip.
+Other applications will use different graphical layers, which are invisible to the XServer applications and most times 
+will sit on top of it. Minecraft, OMXPlayer, and XBMC are some examples.
+
+This is why most X11 screenshot programs fail to capture these applications, and here is where kano-screenshot is useful.
+It will capture everything that all combined layers are currently displaying on your screen.
+
+Kano screenshot is based on the tool raspi2png from Andrew:
 
   https://github.com/AndrewFromMelbourne/raspi2png
 
-It can take screenshots of applications drawing on different layers
-of the RaspberryPI GPU surfaces, where other tools like scrot cannot.
+It also is capable of cropping areas from the screen, and capture areas occupied by X11 applications given by name.
 
-This is the case with applications like Minecraft.
-
-It also is capable of cropping areas from the screenshot by coordinates and by application name.
-
-When invoked without parameters it defaults to taking a complete screenshot saved in the file kano-screenshot.png
+When invoked without parameters it defaults to taking a complete screenshot and will be saved in the file ```kano-screenshot.png```
 on the current directory.
 
 Here's a practical usage transcript to better understand how to use it.
 
 ```
-albert@kano ~ $ kano-screenshot -h
-kano-screenshot: option requires an argument -- 'h'
-Usage: kano-screenshot [-p pngname] [-v] [-w <width>] [-h <height>] [-t <type>] [-d <delay>] [-c <x,y,width,height>]
- [-a <application>]
-    -p - name of png file to create (default is kano-screenshot.png)
-    -v - verbose
-    -h - image height (default is screen height)
+albert@kano ~ $ kano-screenshot -?
+Usage:
+ kano-screenshot [-?] [-p pngname] [-f folder] [-v] [-w <width>] [-h <height>] [-t <type>]
+                 [-d <delay>] [-c <x,y,width,height>] [-a <application>] [-l]
+
+    -? - this help screen
+    -p - name of png file to save (default is kano-screenshot-timespamp.png)
+    -f - folder name, directory to save the screenshot file (can be combined with -p)
+    -v - verbose, explain the steps being done
     -w - image width (default is screen width)
+    -h - image height (default is screen height)
+    -t - type of image to capture, can be one of: RGB565 RGB888 RGBA16 RGBA32
+    -d - delay in seconds before taking the screenshot (default 0)
     -c - crop area off the screenshot by given coordinates (default is full screen)
     -a - crop area off the screenshot occupied by X11 application window name (as reported by xwininfo)
-    -l - list of all X11 application window names to help using the -a option
-    -p - override output image filename (default is kano-screenshot-timestamp.png
-    -t - type of image captured
-         can be one of the following: RGB565 RGB888 RGBA16 RGBA32
-    -d - delay in seconds (default 0)
+    -l - list of all X11 applications that can be captured using the "-a" option
 
 albert@kano ~ $ kano-screenshot -l
 list of X11 windows from which a screen shot can be taken

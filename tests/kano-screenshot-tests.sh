@@ -16,6 +16,7 @@ set +e
 # Handy placeholder to call the kano-screenshot tool
 ks=$(which kano-screenshot)
 vcgencmd=$(which vcgencmd)
+pngdir="testpng"
 
 # Test function which asserts that the execution of $1 returns the subliteral $2,
 # with a short message explaining the test titled $3.
@@ -32,6 +33,7 @@ function kassert()
 }
 
 # Start test: Remove all png test files from a previous test
+rm -rf $pngdir
 rm test*png
 
 # width and height mode tests
@@ -66,4 +68,23 @@ kassert "file test30.png" "1[5-9][0-9] x 3[5-9][0-9]" "application cropping mode
 # list applications
 windowlist=`$ks -l`
 kassert "echo \"$windowlist\"" "Window id" "list XServer applications"
+
+# directory related flag
+mkdir -p $pngdir
+if [ ! -d "$pngdir" ]; then
+    echo "Warning: could not create test directory: $pngdir"
+else
+    `$ks -f "$pngdir"`
+    kassert "ls -l $pngdir/kano-screenshot*" "kano-screenshot" "save defaut screenshot in a subdirectory"
+
+    fname="test_folder.png"
+    `$ks -f "$pngdir" -p "$fname"`
+    kassert "file $pngdir/$fname" "PNG" "save screenshot in a subdirectory filename"
+fi
+
+# delay mode
+delayed=`$ks -d 1 -v`
+kassert "echo $delayed" "sleeping for" "delay screenshot"
+
+
 

@@ -83,8 +83,15 @@ else
 fi
 
 # delay mode
-delayed=`$ks -d 1 -v`
+delayed=`$ks -d 1 -v -p test_delay.png`
 kassert "echo $delayed" "sleeping for" "delay screenshot"
 
-
-
+# image types (RGB / RGBA)
+`$ks -t RGB565 -p test_rgb565.png`
+kassert "file test_rgb565.png" " RGB," "image type RGB565"
+`$ks -t RGB888 -p test_rgb888.png`
+kassert "file test_rgb888.png" " RGB," "image type RGB888"
+`$ks -t RGBA16 -p test_rgba16.png`
+kassert "file test_rgba16.png" " RGBA," "image type RGBA16"
+`$ks -t RGBA32 -p test_rgba32.png`
+kassert "file test_rgba32.png" " RGBA," "image type RGBA32"

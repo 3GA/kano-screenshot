@@ -31,6 +31,9 @@ function kassert()
     fi
 }
 
+# Start test: Remove all png test files from a previous test
+rm test*png
+
 # width and height mode tests
 `$ks -w 320 -p test10.png`
 kassert "file test10.png" "320" "width mode"
@@ -49,8 +52,18 @@ kassert "file test20.png" "175 x 300" "even coordinates cropping mode"
 `$ks -c 101,103,302,408 -p test21.png`
 kassert "file test21.png" "302 x 408" "odd coordinates cropping mode"
 
+echo "Warning: The tests below require the XServer running"
+
 # application mode
-zenity --info "kano screenshot test application" --title="puf" --timeout=7 &
+wtitle="Kano Screenshot Test"
+zenity --info --text "kano screenshot test application" --title "$wtitle"  --timeout=5 --width=150 --height=350 &
 sleep 3
-`$ks -a puf -p test30.png`
-kassert "file test30.png" "202x305" "odd coordinates cropping mode"
+`$ks -a "$wtitle" -p test30.png`
+
+# make sure the application screenshot is equal or greater than zenity dialog size (window decorations)
+kassert "file test30.png" "1[5-9][0-9] x 3[5-9][0-9]" "application cropping mode"
+
+# list applications
+windowlist=`$ks -l`
+kassert "echo \"$windowlist\"" "Window id" "list XServer applications"
+

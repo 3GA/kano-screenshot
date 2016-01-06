@@ -220,6 +220,66 @@ int crop (png_bytep source, png_bytep target, int sourcew, int sourceh, int crop
 }
 
 
+/*
+ * rotate_image_180() rotates the provided image 180 degrees, returning a newly allocated image buffer.
+ * you should free the previous buffer if this function returns non NULL.
+ * call is_screen_flipped() to find if your screen is flipped.
+ */
+unsigned char *rotate_image_180 (png_bytep image, unsigned int width, unsigned int height, unsigned int pitch, int bpp)
+{
+  png_bytep rotated_image = (png_bytep) calloc(height, pitch);
+  if (!rotated_image) {
+    return NULL;
+  }
+
+  // Rotate the image 180 degrees into the new buffer
+  for(unsigned int y=0; y < height; y++)
+    {
+      for (unsigned int x=0; x < width; x++)
+	{
+	  // byte displacement into the next pixel
+	  unsigned int byte_offset = x * bpp + y * pitch;
+
+	  // copy a pixel (bpp bytes long) from the end of the source
+	  // image into the start of the target image.
+	  png_bytep psource = image + (height * pitch) - byte_offset;
+	  png_bytep ptarget = rotated_image + byte_offset;
+	  memcpy(ptarget, psource, bpp);
+	}
+    }
+
+  return rotated_image;
+}
+
+
+/*
+ * is_screen_flipped() returns true if the screen is rotated 180 degrees
+ * by querying if "display_rotate" is set to "2" in /boot/config.txt file.
+ */
+bool is_screen_flipped(void)
+{
+  const char *command="vcgencmd get_config display_rotate";
+  bool flipped=false;
+  int flag=0;  // the actual config.txt value for display_rotate
+  char buff[512];
+  FILE *f;
+
+  if (!(f=popen(command, "r"))) {
+    return false;
+  }
+
+  if (fgets(buff, sizeof(buff), f)) {
+    sscanf(buff, "display_rotate=%d\n", &flag);
+    if (flag==2) {
+      flipped=true;
+    }
+  }
+
+  pclose(f);
+  return flipped;
+}
+
+
 char *buildScreenshotFilename(char *directory, char *filename, int size)
 {
   struct tm *p;
@@ -562,6 +622,8 @@ int main(int argc, char *argv[])
                                                  height,
                                                  &vcImagePtr);
 
+    // TODO: Unfortunately at this time, DISPMANX_NO_ROTATE seems to be
+    // the only implemented option at this API level (see rotate_image_180 function).
     result = vc_dispmanx_snapshot(displayHandle,
                                   resourceHandle,
                                   DISPMANX_NO_ROTATE);
@@ -668,12 +730,27 @@ int main(int argc, char *argv[])
       pitch = bytesPerPixel * ALIGN_TO_16(width);
     }
 
-
     if ((requestedWidth > 0 || requestedHeight > 0) && cropping == true)
       {
 	// TODO: A crop followed by a resize needs the image buffer be rescaled, so not implemented yet
 	kprintf ("Crop followed by resize is not implemented yet\n");
 	exit(EXIT_FAILURE);
+      }
+
+    //-------------------------------------------------------------------
+
+    // rotate the image if necessary
+    if (is_screen_flipped())
+      {
+	kprintf("flipping image due to rotated screen...\n");
+	void *dmxRotatedImagePtr=rotate_image_180((unsigned char *)dmxImagePtr, ALIGN_TO_16(width), height, pitch, bytesPerPixel);
+	if (dmxRotatedImagePtr) {
+	  free(dmxImagePtr);
+	  dmxImagePtr = dmxRotatedImagePtr;
+	}
+	else {
+	  kprintf("could not flip image... out of memory error\n");
+	}
       }
 
     //-------------------------------------------------------------------

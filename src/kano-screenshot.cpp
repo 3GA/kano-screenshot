@@ -703,6 +703,22 @@ int main(int argc, char *argv[])
         kprintf("vc_dispmanx_display_close() returned %d\n", result);
     }
 
+
+    // rotate the image if necessary
+    if (is_screen_flipped())
+      {
+	kprintf("flipping image due to rotated screen...\n");
+	void *dmxRotatedImagePtr=rotate_image_180((unsigned char *)dmxImagePtr, ALIGN_TO_16(width), height, pitch, bytesPerPixel);
+	if (dmxRotatedImagePtr) {
+	  free(dmxImagePtr);
+	  dmxImagePtr = dmxRotatedImagePtr;
+	}
+	else {
+	  kprintf("could not flip image... out of memory error\n");
+	}
+      }
+
+
     // Do the screenshot cropping if requested.
     if (cropping == true) {
 
@@ -735,22 +751,6 @@ int main(int argc, char *argv[])
 	// TODO: A crop followed by a resize needs the image buffer be rescaled, so not implemented yet
 	kprintf ("Crop followed by resize is not implemented yet\n");
 	exit(EXIT_FAILURE);
-      }
-
-    //-------------------------------------------------------------------
-
-    // rotate the image if necessary
-    if (is_screen_flipped())
-      {
-	kprintf("flipping image due to rotated screen...\n");
-	void *dmxRotatedImagePtr=rotate_image_180((unsigned char *)dmxImagePtr, ALIGN_TO_16(width), height, pitch, bytesPerPixel);
-	if (dmxRotatedImagePtr) {
-	  free(dmxImagePtr);
-	  dmxImagePtr = dmxRotatedImagePtr;
-	}
-	else {
-	  kprintf("could not flip image... out of memory error\n");
-	}
       }
 
     //-------------------------------------------------------------------

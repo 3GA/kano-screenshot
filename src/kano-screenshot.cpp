@@ -28,7 +28,7 @@
 //
 // kano-screenshot.cpp
 //
-// Copyright (C) 2014, 2015 Computing Ltd.
+// Copyright (C) 2014, 2015, 2016 Computing Ltd.
 // License: http://www.gnu.org/licenses/gpl-2.0.txt GNU General Public License v2
 //
 // Application that takes screenshots on the RaspberryPI from all GPU layers
@@ -44,6 +44,11 @@
 #include <time.h>
 
 #include "bcm_host.h"
+
+// There are 2 API versions of vc_gencmd.
+// Taking the "General command Service API" one.
+#include "interface/vmcs_host/vcgencmd.h"
+
 #include "xwindows.h"
 
 // A printf macro sensitive to the -v (verbose) flag
@@ -258,25 +263,20 @@ unsigned char *rotate_image_180 (png_bytep image, unsigned int width, unsigned i
  */
 bool is_screen_flipped(void)
 {
-  const char *command="vcgencmd get_config display_rotate";
-  bool flipped=false;
-  int flag=0;  // the actual config.txt value for display_rotate
-  char buff[512];
-  FILE *f;
+    char gencmd_response[1024];
+    int rotation=0;
+    bool flipped=0;
 
-  if (!(f=popen(command, "r"))) {
-    return false;
-  }
-
-  if (fgets(buff, sizeof(buff), f)) {
-    sscanf(buff, "display_rotate=%d\n", &flag);
-    if (flag==2) {
-      flipped=true;
+    // Call the VideoCore API to query if screen is rotated.
+    int rc=vc_gencmd(gencmd_response, sizeof(gencmd_response), "get_config int");
+    if (!rc) {
+        vc_gencmd_number_property(gencmd_response, "display_rotate", &rotation);
+        if (rotation == 2) {   // 180 degrees
+            flipped=true;
+        }
     }
-  }
 
-  pclose(f);
-  return flipped;
+    return (flipped);
 }
 
 
@@ -543,10 +543,14 @@ int main(int argc, char *argv[])
     bcm_host_init();
 
     DISPMANX_DISPLAY_HANDLE_T displayHandle = vc_dispmanx_display_open(0);
+    if (!displayHandle) {
+        kprintf("%s: unable to get a display handle\n", program);
+        bcm_host_deinit();
+        exit(EXIT_FAILURE);
+    }
 
     DISPMANX_MODEINFO_T modeInfo;
     result = vc_dispmanx_display_get_info(displayHandle, &modeInfo);
-
     if (result != 0)
     {
         kprintf("%s: unable to get display information\n", program);
@@ -556,7 +560,6 @@ int main(int argc, char *argv[])
 
     int width = modeInfo.width;
     int height = modeInfo.height;
-
 
     if (requestedWidth > 0)
       {
@@ -593,7 +596,6 @@ int main(int argc, char *argv[])
 
     int pitch = bytesPerPixel * ALIGN_TO_16(width);
 
-
     kprintf("screen width = %d\n", modeInfo.width);
     kprintf("screen height = %d\n", modeInfo.height);
     kprintf("requested width = %d\n", requestedWidth);
@@ -603,8 +605,6 @@ int main(int argc, char *argv[])
     kprintf("image type = %s\n", imageTypeName);
     kprintf("bytes per pixel = %d\n", bytesPerPixel);
     kprintf("pitch = %d\n", pitch);
-
-
 
     void *dmxImagePtr = malloc(pitch * height);
 
@@ -703,7 +703,6 @@ int main(int argc, char *argv[])
         kprintf("vc_dispmanx_display_close() returned %d\n", result);
     }
 
-
     // rotate the image if necessary
     if (is_screen_flipped())
       {
@@ -717,7 +716,6 @@ int main(int argc, char *argv[])
 	  kprintf("could not flip image... out of memory error\n");
 	}
       }
-
 
     // Do the screenshot cropping if requested.
     if (cropping == true) {
@@ -869,10 +867,6 @@ int main(int argc, char *argv[])
         break;
     }
 
-
-    
-
-
     png_write_end(pngPtr, NULL);
     png_destroy_write_struct(&pngPtr, &infoPtr);
     fclose(pngfp);
@@ -881,6 +875,7 @@ int main(int argc, char *argv[])
 
     free(dmxImagePtr);
     bcm_host_deinit();
+
     return 0;
 }
 

@@ -44,6 +44,7 @@
 #include <time.h>
 
 #include "bcm_host.h"
+#include "encode.h"
 
 // There are 2 API versions of vc_gencmd.
 // Taking the "General command Service API" one.
@@ -59,6 +60,10 @@ bool verbose=false; // Mute by default
 
 #ifndef ALIGN_TO_16
 #define ALIGN_TO_16(x)  ((x + 15) & ~15)
+#endif
+
+#ifndef ALIGN_TO_32
+#define ALIGN_TO_32(x)  ((x + 31) & ~31)
 #endif
 
 const char* program = NULL;
@@ -317,13 +322,210 @@ char *buildScreenshotFilename(char *directory, char *filename, int size)
   return filename;
 }
 
+int  pngOut(char *pngName, int width, int height, int pitch, VC_IMAGE_TYPE_T imageType, void *dmxImagePtr) {
+    png_structp pngPtr = png_create_write_struct(PNG_LIBPNG_VER_STRING,
+                                                 NULL,
+                                                 NULL,
+                                                 NULL);
+    if (pngPtr == NULL)
+    {
+        kprintf("%s: unable to allocated PNG write structure\n",
+                program);
+
+        return EXIT_FAILURE;
+    }
+
+    png_infop infoPtr = png_create_info_struct(pngPtr);
+
+    if (infoPtr == NULL)
+    {
+        kprintf("%s: unable to allocated PNG info structure\n",
+                program);
+
+        return EXIT_FAILURE;
+    }
+
+    if (setjmp(png_jmpbuf(pngPtr)))
+    {
+        kprintf("%s: unable to create PNG\n", program);
+    }
+
+    FILE *pngfp = fopen(pngName, "wb");
+
+    if (pngfp == NULL)
+    {
+        kprintf("%s: unable to create %s - %s\n",
+                program,
+                pngName,
+                strerror(errno));
+
+        return EXIT_FAILURE;
+    }
+    png_init_io(pngPtr, pngfp);
+
+    int png_color_type = PNG_COLOR_TYPE_RGB;
+
+    if ((imageType == VC_IMAGE_RGBA16) || (imageType == VC_IMAGE_RGBA32))
+    {
+      png_color_type = PNG_COLOR_TYPE_RGBA;
+    }
+
+    png_set_IHDR(
+        pngPtr,
+        infoPtr,
+        width,
+        height,
+        8,
+        png_color_type,
+        PNG_INTERLACE_NONE,
+        PNG_COMPRESSION_TYPE_BASE,
+        PNG_FILTER_TYPE_BASE);
+
+    png_write_info(pngPtr, infoPtr);
+
+    switch(imageType)
+    {
+    case VC_IMAGE_RGB565:
+
+      pngWriteImageRGB565(width,
+                            height,
+                            pitch,
+                            dmxImagePtr,
+                            pngPtr,
+                            infoPtr);
+        break;
+
+    case VC_IMAGE_RGB888:
+
+        pngWriteImageRGB888(width,
+                            height,
+                            pitch,
+                            dmxImagePtr,
+                            pngPtr,
+                            infoPtr);
+        break;
+
+    case VC_IMAGE_RGBA16:
+
+        pngWriteImageRGBA16(width,
+                            height,
+                            pitch,
+                            dmxImagePtr,
+                            pngPtr,
+                            infoPtr);
+        break;
+
+    case VC_IMAGE_RGBA32:
+
+        pngWriteImageRGBA32(width,
+                            height,
+                            pitch,
+                            dmxImagePtr,
+                            pngPtr,
+                            infoPtr);
+        break;
+
+    default:
+
+        break;
+    }
+
+    png_write_end(pngPtr, NULL);
+    png_destroy_write_struct(&pngPtr, &infoPtr);
+    fclose(pngfp);
+
+    //-------------------------------------------------------------------
+    return 0;
+}
 
 //-----------------------------------------------------------------------
+
+
+void initResources(resources *r){
+  r->dmxImagePtr = NULL;
+  r->displayHandle = 0;
+  r->resourceHandleValid =0;
+}
+
+void cleanupResources(resources *r, int exitCode) {
+  if(r->resourceHandleValid){
+    int result = vc_dispmanx_resource_delete(r->resourceHandle);
+    if (verbose)
+    {
+        kprintf("vc_dispmanx_resource_delete() returned %d\n", result);
+    }
+  }
+  if(r->displayHandle){
+    int result = vc_dispmanx_display_close(r->displayHandle);
+    if (verbose)
+    {
+        kprintf("vc_dispmanx_display_close() returned %d\n", result);
+    }
+  }
+  if(r->dmxImagePtr){
+    free(r->dmxImagePtr);
+  }
+  bcm_host_deinit();
+  exit(exitCode);
+}
+
+
+int getFrame(void *handle) {
+    frameData *fdat = (frameData *)handle;
+  
+    // TODO: Unfortunately at this time, DISPMANX_NO_ROTATE seems to be
+    // the only implemented option at this API level (see rotate_image_180 function).
+    int result = vc_dispmanx_snapshot(fdat->r->displayHandle,
+                                      fdat->r->resourceHandle,
+                                      DISPMANX_NO_ROTATE);
+
+    if (verbose)
+    {
+        kprintf("vc_dispmanx_snapshot() returned %d\n", result);
+    }
+
+    if (result != 0)
+    {
+        kprintf("%s: vc_dispmanx_snapshot() failed\n", program);
+        return EXIT_FAILURE;
+    }
+
+
+    if (result != 0)
+    {
+        kprintf("%s: vc_dispmanx_rect_set() failed\n", program);
+        return EXIT_FAILURE;
+    }
+
+
+    result = vc_dispmanx_resource_read_data(fdat->r->resourceHandle,
+                                            &fdat->rect,
+                                            fdat->r->dmxImagePtr,
+                                            fdat->pitch);
+
+    if (result != 0)
+    {
+        kprintf("%s: vc_dispmanx_resource_read_data() failed\n",
+                program);
+
+        return EXIT_FAILURE;
+    }
+
+    if (verbose)
+    {
+        kprintf("vc_dispmanx_resource_read_data() returned %d\n", result);
+    }
+
+    // FIXME: resurrect support for cropping/flipping
+
+
+    return 0;
+}
 
 int main(int argc, char *argv[])
 {
     int opt = 0;
-
+    resources r;
     char defaultPngName[256];
     char *pngName=defaultPngName;
     char *image_filename=NULL;
@@ -332,10 +534,12 @@ int main(int argc, char *argv[])
     int requestedWidth = 0;
     int requestedHeight = 0;
     int delay = 0, retry = 0;
+    int frames = 1;
 
     // -c parameter variables
     bool cropping = false;
     bool appfound = false;
+    bool do_video_encode = false;
     int cropx=0, cropy=0, cropwidth=0, cropheight=0;
 
     // -a parameter variables
@@ -348,10 +552,10 @@ int main(int argc, char *argv[])
     int result = 0;
 
     program = basename(argv[0]);
+    initResources(&r);
+  //-------------------------------------------------------------------
 
-    //-------------------------------------------------------------------
-
-    while ((opt = getopt(argc, argv, "d:h:p:f:t:vw:c:a:l?")) != -1)
+    while ((opt = getopt(argc, argv, "d:n:mh:p:f:t:vw:c:a:l?")) != -1)
     {
         switch (opt)
         {
@@ -359,8 +563,16 @@ int main(int argc, char *argv[])
             verbose = true;
             break;
 
+        case 'm':
+            do_video_encode = true;
+            break;
+
         case 'd':
             delay = atoi(optarg);
+            break;
+
+        case 'n':
+            frames = atoi(optarg);
             break;
 
         case 'h':
@@ -481,6 +693,12 @@ int main(int argc, char *argv[])
         }
     }
 
+    if ((requestedWidth > 0 || requestedHeight > 0) && cropping == true)
+      {
+	// TODO: A crop followed by a resize needs the image buffer be rescaled, so not implemented yet
+	kprintf ("Crop followed by resize is not implemented yet\n");
+        exit(EXIT_FAILURE);
+      }
 
     //-------------------------------------------------------------------
 
@@ -542,20 +760,18 @@ int main(int argc, char *argv[])
 
     bcm_host_init();
 
-    DISPMANX_DISPLAY_HANDLE_T displayHandle = vc_dispmanx_display_open(0);
-    if (!displayHandle) {
+    r.displayHandle = vc_dispmanx_display_open(0);
+    if (!r.displayHandle) {
         kprintf("%s: unable to get a display handle\n", program);
-        bcm_host_deinit();
-        exit(EXIT_FAILURE);
+        cleanupResources(&r, EXIT_FAILURE);
     }
 
     DISPMANX_MODEINFO_T modeInfo;
-    result = vc_dispmanx_display_get_info(displayHandle, &modeInfo);
+    result = vc_dispmanx_display_get_info(r.displayHandle, &modeInfo);
     if (result != 0)
     {
         kprintf("%s: unable to get display information\n", program);
-	bcm_host_deinit();
-        exit(EXIT_FAILURE);
+        cleanupResources(&r, EXIT_FAILURE);
     }
 
     int width = modeInfo.width;
@@ -606,42 +822,20 @@ int main(int argc, char *argv[])
     kprintf("bytes per pixel = %d\n", bytesPerPixel);
     kprintf("pitch = %d\n", pitch);
 
-    void *dmxImagePtr = malloc(pitch * height);
+    r.dmxImagePtr = malloc(pitch * height);
 
-    if (dmxImagePtr == NULL)
+    if (r.dmxImagePtr == NULL) 
     {
         kprintf("%s: unable to allocated image buffer\n", program);
-	bcm_host_deinit();
-        exit(EXIT_FAILURE);
+        cleanupResources(&r, EXIT_FAILURE);
     }
 
     uint32_t vcImagePtr = 0;
-    DISPMANX_RESOURCE_HANDLE_T resourceHandle;
-    resourceHandle = vc_dispmanx_resource_create(imageType,
+    r.resourceHandle = vc_dispmanx_resource_create(imageType,
                                                  width,
                                                  height,
                                                  &vcImagePtr);
-
-    // TODO: Unfortunately at this time, DISPMANX_NO_ROTATE seems to be
-    // the only implemented option at this API level (see rotate_image_180 function).
-    result = vc_dispmanx_snapshot(displayHandle,
-                                  resourceHandle,
-                                  DISPMANX_NO_ROTATE);
-
-    if (verbose)
-    {
-        kprintf("vc_dispmanx_snapshot() returned %d\n", result);
-    }
-
-    if (result != 0)
-    {
-        vc_dispmanx_resource_delete(resourceHandle);
-        vc_dispmanx_display_close(displayHandle);
-
-        kprintf("%s: vc_dispmanx_snapshot() failed\n", program);
-	bcm_host_deinit();
-        exit(EXIT_FAILURE);
-    }
+    r.resourceHandleValid=1;
 
     VC_RECT_T rect;
 
@@ -656,226 +850,31 @@ int main(int argc, char *argv[])
                rect.height);
     }
 
-    if (result != 0)
-    {
-        vc_dispmanx_resource_delete(resourceHandle);
-        vc_dispmanx_display_close(displayHandle);
-
-        kprintf("%s: vc_dispmanx_rect_set() failed\n", program);
-	bcm_host_deinit();
-        exit(EXIT_FAILURE);
-    }
-
-
-    result = vc_dispmanx_resource_read_data(resourceHandle,
-                                            &rect,
-                                            dmxImagePtr,
-                                            pitch);
-
-    if (result != 0)
-    {
-        vc_dispmanx_resource_delete(resourceHandle);
-        vc_dispmanx_display_close(displayHandle);
-
-        kprintf("%s: vc_dispmanx_resource_read_data() failed\n",
-                program);
-
-	bcm_host_deinit();
-        exit(EXIT_FAILURE);
-    }
-
-    if (verbose)
-    {
-        kprintf("vc_dispmanx_resource_read_data() returned %d\n", result);
-    }
-
-    result = vc_dispmanx_resource_delete(resourceHandle);
-
-    if (verbose)
-    {
-        kprintf("vc_dispmanx_resource_delete() returned %d\n", result);
-    }
-
-    result = vc_dispmanx_display_close(displayHandle);
-
-    if (verbose)
-    {
-        kprintf("vc_dispmanx_display_close() returned %d\n", result);
-    }
-
-    // rotate the image if necessary
-    if (is_screen_flipped())
-      {
-	kprintf("flipping image due to rotated screen...\n");
-	void *dmxRotatedImagePtr=rotate_image_180((unsigned char *)dmxImagePtr, ALIGN_TO_16(width), height, pitch, bytesPerPixel);
-	if (dmxRotatedImagePtr) {
-	  free(dmxImagePtr);
-	  dmxImagePtr = dmxRotatedImagePtr;
-	}
-	else {
-	  kprintf("could not flip image... out of memory error\n");
-	}
-      }
-
-    // Do the screenshot cropping if requested.
-    if (cropping == true) {
-
-      void *dmxCroppedImagePtr = calloc (cropheight, pitch);
-      if (!dmxCroppedImagePtr) {
-	kprintf("%s: unable to allocated cropping buffer\n", program);
-	exit(EXIT_FAILURE);
-      }
-      else {
-	// Extract the requested area from the complete screenshot
-	kprintf ("Cropping screenshot area @%dx%d size %dx%d\n", cropx, cropy, cropwidth, cropheight);
-
-	// Crop image off screenshot, then swap the image buffers so that png saves the cropped image instead
-	crop ((png_bytep)dmxImagePtr, (png_bytep)dmxCroppedImagePtr, 
-              ALIGN_TO_16(width), height, cropx, cropy, ALIGN_TO_16(cropwidth), cropheight, bytesPerPixel);
-
-	free (dmxImagePtr);
-	dmxImagePtr = dmxCroppedImagePtr;
-
-	// Provide the new image size details
-	width = cropwidth;
-	height = cropheight;
-      }
-
-      pitch = bytesPerPixel * ALIGN_TO_16(width);
-    }
-
-    if ((requestedWidth > 0 || requestedHeight > 0) && cropping == true)
-      {
-	// TODO: A crop followed by a resize needs the image buffer be rescaled, so not implemented yet
-	kprintf ("Crop followed by resize is not implemented yet\n");
-	exit(EXIT_FAILURE);
-      }
 
     //-------------------------------------------------------------------
+    frameData fdat;
+    fdat.rect = rect;
+    fdat.r = &r;
+    fdat.width = width;
+    fdat.height = height;
+    fdat.pitch = pitch;
+    fdat.frames = frames;
+    fdat.height16 = ALIGN_TO_16(height);
+    int res;
 
-    png_structp pngPtr = png_create_write_struct(PNG_LIBPNG_VER_STRING,
-                                                 NULL,
-                                                 NULL,
-                                                 NULL);
-
-    if (pngPtr == NULL)
-    {
-        kprintf("%s: unable to allocated PNG write structure\n",
-                program);
-
-	bcm_host_deinit();
-        exit(EXIT_FAILURE);
+    if(do_video_encode){
+      res = video_encode(pngName, &fdat);
+    }else{
+        for(int f=0; f< frames; f++) {
+            char filename[255];
+            snprintf(filename, 254, pngName, f);
+            res = getFrame(&fdat);
+            if(res) break;
+            res = pngOut(filename, fdat.width, fdat.height, pitch, imageType, r.dmxImagePtr);
+            if(res) break;
+        }
     }
-
-    png_infop infoPtr = png_create_info_struct(pngPtr);
-
-    if (infoPtr == NULL)
-    {
-        kprintf("%s: unable to allocated PNG info structure\n",
-                program);
-
-	bcm_host_deinit();
-        exit(EXIT_FAILURE);
-    }
-
-    if (setjmp(png_jmpbuf(pngPtr)))
-    {
-        kprintf("%s: unable to create PNG\n", program);
-	bcm_host_deinit();
-        exit(EXIT_FAILURE);
-    }
-
-    FILE *pngfp = fopen(pngName, "wb");
-
-    if (pngfp == NULL)
-    {
-        kprintf("%s: unable to create %s - %s\n",
-                program,
-                pngName,
-                strerror(errno));
-
-	bcm_host_deinit();
-        exit(EXIT_FAILURE);
-    }
-
-    png_init_io(pngPtr, pngfp);
-
-    int png_color_type = PNG_COLOR_TYPE_RGB;
-
-    if ((imageType == VC_IMAGE_RGBA16) || (imageType == VC_IMAGE_RGBA32))
-    {
-      png_color_type = PNG_COLOR_TYPE_RGBA;
-    }
-
-    png_set_IHDR(
-        pngPtr,
-        infoPtr,
-        width,
-        height,
-        8,
-        png_color_type,
-        PNG_INTERLACE_NONE,
-        PNG_COMPRESSION_TYPE_BASE,
-        PNG_FILTER_TYPE_BASE);
-
-    png_write_info(pngPtr, infoPtr);
-
-    switch(imageType)
-    {
-    case VC_IMAGE_RGB565:
-
-      pngWriteImageRGB565(width,
-                            height,
-                            pitch,
-                            dmxImagePtr,
-                            pngPtr,
-                            infoPtr);
-        break;
-
-    case VC_IMAGE_RGB888:
-
-        pngWriteImageRGB888(width,
-                            height,
-                            pitch,
-                            dmxImagePtr,
-                            pngPtr,
-                            infoPtr);
-        break;
-
-    case VC_IMAGE_RGBA16:
-
-        pngWriteImageRGBA16(width,
-                            height,
-                            pitch,
-                            dmxImagePtr,
-                            pngPtr,
-                            infoPtr);
-        break;
-
-    case VC_IMAGE_RGBA32:
-
-        pngWriteImageRGBA32(width,
-                            height,
-                            pitch,
-                            dmxImagePtr,
-                            pngPtr,
-                            infoPtr);
-        break;
-
-    default:
-
-        break;
-    }
-
-    png_write_end(pngPtr, NULL);
-    png_destroy_write_struct(&pngPtr, &infoPtr);
-    fclose(pngfp);
-
-    //-------------------------------------------------------------------
-
-    free(dmxImagePtr);
-    bcm_host_deinit();
-
+    cleanupResources(&r, res);
     return 0;
 }
 

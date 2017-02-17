@@ -470,8 +470,8 @@ void cleanupResources(resources *r, int exitCode) {
 }
 
 
-int getFrame(void *handle) {
-    frameData *fdat = (frameData *)handle;
+int getFrame(frameData *fdat) {
+    
   
     // TODO: Unfortunately at this time, DISPMANX_NO_ROTATE seems to be
     // the only implemented option at this API level (see rotate_image_180 function).

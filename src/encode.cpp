@@ -32,33 +32,33 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/time.h>
 
 #include "encode.h"
 extern "C" {
 #include "ilclient.h"
 }
 
-#define WIDTH     640
-#define PITCH     ((WIDTH+31)&~31)
-#define HEIGHT    ((WIDTH)*9/16)
-#define HEIGHT16  ((HEIGHT+15)&~15)
-#define SIZE      ((WIDTH * HEIGHT16 * 3)/2)
+#define SIZE      
 
 // generate an animated test card in YUV format
 static int
 generate_test_card(void *buf, OMX_U32 * filledLen, int frame, frameData *fdat)
 {
    int i, j;
-   char *y = buf, *u = y + fdat->pitch * HEIGHT16, *v =
-      u + (PITCH >> 1) * (HEIGHT16 >> 1);
+   char *y = buf, *u = y + fdat->pitch * fdat->height16, *v =
+     u + (fdat->pitch >> 1) * (fdat->height16 >> 1);
+   int height = fdat->height;
+   int width = fdat->width;
+   int pitch = fdat->pitch;
 
-   for (j = 0; j < HEIGHT / 2; j++) {
-      char *py = y + 2 * j * PITCH;
-      char *pu = u + j * (PITCH >> 1);
-      char *pv = v + j * (PITCH >> 1);
-      for (i = 0; i < WIDTH / 2; i++) {
+   for (j = 0; j < height / 2; j++) {
+      char *py = y + 2 * j * pitch;
+      char *pu = u + j * (pitch >> 1);
+      char *pv = v + j * (pitch >> 1);
+      for (i = 0; i < width / 2; i++) {
 	 int z = (((i + frame) >> 4) ^ ((j + frame) >> 4)) & 15;
-	 py[0] = py[1] = py[PITCH] = py[PITCH + 1] = 0x80 + z * 0x8;
+	 py[0] = py[1] = py[pitch] = py[pitch + 1] = 0x80 + z * 0x8;
 	 pu[0] = 0x00 + z * 0x10;
 	 pv[0] = 0x80 + z * 0x30;
 	 py += 2;
@@ -66,7 +66,31 @@ generate_test_card(void *buf, OMX_U32 * filledLen, int frame, frameData *fdat)
 	 pv++;
       }
    }
-   *filledLen = SIZE;
+   *filledLen = ((width * fdat->height16 * 3)/2);
+   return 1;
+}
+
+static int
+generate_test_card_rgb(void *buf, OMX_U32 * filledLen, int frame, frameData *fdat)
+{
+   int i, j;
+   char *rgb = buf;
+   int height = fdat->height;
+   int width = fdat->width;
+   int pitch = fdat->pitch;
+
+   if(0){
+   for (j = 0; j < height; j++) {
+      char *prgb = rgb + j * pitch;
+      for (i = 0; i < width; i++) {
+	 int z = (((i + frame) >> 4) ^ ((j + frame) >> 4)) & 15;
+	 prgb[0] = 0x80 + z * 0x8;
+	 prgb[1] = 0x00 + z * 0x10;
+	 prgb += 2;
+      }
+   }
+   }
+   *filledLen = ((width * fdat->height16 * 2));
    return 1;
 }
 
@@ -145,12 +169,12 @@ int video_encode(char *outputfilename, frameData *fdat)
    print_def(def);
 
    // Port 200: in 1/1 115200 16 enabled,not pop.,not cont. 320x240 320x240 @1966080 20
-   def.format.video.nFrameWidth = WIDTH;
-   def.format.video.nFrameHeight = HEIGHT;
+   def.format.video.nFrameWidth = fdat->width;
+   def.format.video.nFrameHeight = fdat->height;
    def.format.video.xFramerate = 30 << 16;
    def.format.video.nSliceHeight = def.format.video.nFrameHeight;
    def.format.video.nStride = def.format.video.nFrameWidth;
-   def.format.video.eColorFormat = OMX_COLOR_FormatYUV420PackedPlanar;
+   def.format.video.eColorFormat =  OMX_COLOR_Format16bitRGB565;
 
    print_def(def);
 
@@ -185,7 +209,7 @@ int video_encode(char *outputfilename, frameData *fdat)
    bitrateType.nSize = sizeof(OMX_VIDEO_PARAM_BITRATETYPE);
    bitrateType.nVersion.nVersion = OMX_VERSION;
    bitrateType.eControlRate = OMX_Video_ControlRateVariable;
-   bitrateType.nTargetBitrate = 1000000;
+   bitrateType.nTargetBitrate = 4000000;
    bitrateType.nPortIndex = 201;
    r = OMX_SetParameter(ILC_GET_HANDLE(video_encode),
                        OMX_IndexParamVideoBitrate, &bitrateType);
@@ -250,8 +274,28 @@ int video_encode(char *outputfilename, frameData *fdat)
       }
       else {
 	 /* fill it */
-        generate_test_card(buf->pBuffer, &buf->nFilledLen, framenumber++, fdat);
 
+        // FIXME only used to set length:
+        generate_test_card_rgb(buf->pBuffer, &buf->nFilledLen, framenumber++, fdat);
+
+        // Rubbish API:
+        fdat->r->dmxImagePtr = (void *)buf->pBuffer;
+        if(getFrame(fdat)) {
+            printf("Error getting snap!\n");
+        }
+        fdat->r->dmxImagePtr = NULL; // don't try to free at end, freeing here.
+
+        struct timeval tv;
+        gettimeofday(&tv,NULL);
+
+        OMX_TICKS time;
+        time.nLowPart = tv.tv_usec;
+        time.nHighPart = tv.tv_sec;
+        buf->nTimeStamp = time;
+        if(framenumber==0){
+          buf->nFlags |=OMX_BUFFERFLAG_STARTTIME;
+        }
+        
 	 if (OMX_EmptyThisBuffer(ILC_GET_HANDLE(video_encode), buf) !=
 	     OMX_ErrorNone) {
 	    printf("Error emptying buffer!\n");

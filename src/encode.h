@@ -23,6 +23,7 @@ typedef struct {
 
 }frameData;
 
+int getFrame(frameData *fdat);
 int video_encode(char *outputfilename, frameData *fdat);
 
 

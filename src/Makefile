@@ -10,7 +10,7 @@
 #  "make debug" will bundle symbolic information for debugging purposes with no optimization
 #
 
-OBJS=kano-screenshot.o xwindows.o
+OBJS=kano-screenshot.o xwindows.o dispmanx_grabber.o
 BIN=kano-screenshot
 
 # By default we enable full code optimization, unless "debug" is requested

@@ -43,7 +43,7 @@
 #include <unistd.h>
 #include <time.h>
 
-#include "bcm_host.h"
+#include "dispmanx_grabber.h"
 
 // There are 2 API versions of vc_gencmd.
 // Taking the "General command Service API" one.
@@ -63,23 +63,7 @@ bool verbose=false; // Mute by default
 
 const char* program = NULL;
 
-typedef struct
-{
-    const char* name;
-    VC_IMAGE_TYPE_T type;
-    int bytesPerPixel;
-}
-ImageInfo;
 
-ImageInfo imageInfo[] =
-{
-    { "RGB565", VC_IMAGE_RGB565, 2 },
-    { "RGB888", VC_IMAGE_RGB888, 3 },
-    { "RGBA16", VC_IMAGE_RGBA16, 2 },
-    { "RGBA32", VC_IMAGE_RGBA32, 4 }
-};
-
-static size_t imageEntries = sizeof(imageInfo)/sizeof(imageInfo[0]);
 
 void pngWriteImageRGB565(
     int width,
@@ -342,8 +326,6 @@ int main(int argc, char *argv[])
     char *appname=NULL;
 
     const char* imageTypeName = "RGB888";
-    VC_IMAGE_TYPE_T imageType = VC_IMAGE_MIN;
-    int bytesPerPixel  = 0;
 
     int result = 0;
 
@@ -461,11 +443,7 @@ int main(int argc, char *argv[])
             printf( "    -h - image height (default is screen height)\n");
             printf( "    -t - type of image to capture, can be one of:");
 
-            size_t entry = 0;
-            for (entry = 0; entry < imageEntries; entry++)
-            {
-              printf(" %s", imageInfo[entry].name);
-            }
+            dispmanx_grabber_print_names();
 
             printf( "\n    -d - delay in seconds before taking the screenshot (default 0)\n");
             printf( "    -c - crop area off the screenshot by given coordinates (default is full screen)\n");
@@ -504,26 +482,6 @@ int main(int argc, char *argv[])
 
     //-------------------------------------------------------------------
 
-    size_t entry = 0;
-    for (entry = 0; entry < imageEntries; entry++)
-    {
-        if (strcasecmp(imageTypeName, imageInfo[entry].name) == 0)
-        {
-            imageType = imageInfo[entry].type;
-            bytesPerPixel =  imageInfo[entry].bytesPerPixel;
-            break;
-        }
-    }
-
-    if (imageType == VC_IMAGE_MIN)
-    {
-      kprintf(
-                "%s: unknown image type %s\n",
-                program,
-                imageTypeName);
-
-        exit(EXIT_FAILURE);
-    }
 
     //-------------------------------------------------------------------
 
@@ -540,64 +498,53 @@ int main(int argc, char *argv[])
 
     //-------------------------------------------------------------------
 
-    bcm_host_init();
-
-    DISPMANX_DISPLAY_HANDLE_T displayHandle = vc_dispmanx_display_open(0);
-    if (!displayHandle) {
-        kprintf("%s: unable to get a display handle\n", program);
-        bcm_host_deinit();
-        exit(EXIT_FAILURE);
+    DispmanxGrabberState grabState;
+    DispmanxGrabberConfig grabCfg = {
+        .requestedWidth = requestedWidth,
+        .requestedHeight = requestedHeight,
+        .alignLog2 = 4,
+        .imageTypeName = imageTypeName, 
+        .verbose = verbose,
+        .logPrintf = &printf
+    };
+    result = dispmanx_grabber_init(&grabState, grabCfg);
+    if(result) {
+      kprintf("%s: dispmanx_grabber_init_failed: %d \n", program, result);
+      dispmanx_grabber_close(&grabState);
+      exit(EXIT_FAILURE);
     }
 
-    DISPMANX_MODEINFO_T modeInfo;
-    result = vc_dispmanx_display_get_info(displayHandle, &modeInfo);
-    if (result != 0)
-    {
-        kprintf("%s: unable to get display information\n", program);
-	bcm_host_deinit();
-        exit(EXIT_FAILURE);
-    }
+    DispmanxGrabberFrameInfo frameInfo = dispmanx_grabber_frameinfo(&grabState);
+    int width = frameInfo.width;
+    int height = frameInfo.height; 
+    int bytesPerPixel  = frameInfo.bytesPerPixel;
+    VC_IMAGE_TYPE_T imageType = frameInfo.imageType;
 
-    int width = modeInfo.width;
-    int height = modeInfo.height;
+    
 
     if (requestedWidth > 0)
       {
-        // avoid larger widths than the screen fits
-        requestedWidth = (requestedWidth > width ? width : requestedWidth);
-	
-        if (requestedHeight == 0)
-	  {
-            double numerator = height * requestedWidth;
-            double denominator = width;
-            height = (int)ceil(numerator / denominator);
-	  }
-
-        width = requestedWidth;
         kprintf ("Rescaling width: new width=%d, height=%d\n", width, height);
       }
 
     if (requestedHeight > 0)
       {
-        // avoid larger heights than the screen fits
-        requestedHeight = (requestedHeight > height ? height : requestedHeight);
-	
-        if (requestedWidth == 0)
-	  {
-	    double numerator = width * requestedHeight;
-            double denominator = height;
-            width = (int)ceil(numerator / denominator);
-	  }
-
-        height = requestedHeight;
         kprintf ("Rescaling height: new width=%d, height=%d\n", width, height);
       }
 
 
-    int pitch = bytesPerPixel * ALIGN_TO_16(width);
 
-    kprintf("screen width = %d\n", modeInfo.width);
-    kprintf("screen height = %d\n", modeInfo.height);
+    int pitch = frameInfo.pitch;
+    void *dmxImagePtr = malloc(frameInfo.frame_size);
+    if(!dmxImagePtr)
+    {
+        kprintf("failed to allocate framebuffer!\n");
+        dispmanx_grabber_close(&grabState);
+        exit(EXIT_FAILURE);
+    }
+
+    kprintf("screen width = %d\n", width);
+    kprintf("screen height = %d\n", height);
     kprintf("requested width = %d\n", requestedWidth);
     kprintf("requested height = %d\n", requestedHeight);
     kprintf("image width = %d\n", width);
@@ -606,111 +553,26 @@ int main(int argc, char *argv[])
     kprintf("bytes per pixel = %d\n", bytesPerPixel);
     kprintf("pitch = %d\n", pitch);
 
-    void *dmxImagePtr = malloc(pitch * height);
-
-    if (dmxImagePtr == NULL)
+    result = dispmanx_grabber_grab(&grabState, dmxImagePtr);
+    if(verbose)
     {
-        kprintf("%s: unable to allocated image buffer\n", program);
-	bcm_host_deinit();
-        exit(EXIT_FAILURE);
+        kprintf("dispmanx_grabber_grab() returned %d\n", result);        
+    }
+    if(result != DISPMANX_GRABBER_OK) {
+        kprintf("dispmanx_grabber_grab() failed, returned %d\n", result);        
+        dispmanx_grabber_close(&grabState);
+        exit(EXIT_FAILURE);      
     }
 
-    uint32_t vcImagePtr = 0;
-    DISPMANX_RESOURCE_HANDLE_T resourceHandle;
-    resourceHandle = vc_dispmanx_resource_create(imageType,
-                                                 width,
-                                                 height,
-                                                 &vcImagePtr);
-
-    // TODO: Unfortunately at this time, DISPMANX_NO_ROTATE seems to be
-    // the only implemented option at this API level (see rotate_image_180 function).
-    result = vc_dispmanx_snapshot(displayHandle,
-                                  resourceHandle,
-                                  DISPMANX_NO_ROTATE);
-
-    if (verbose)
-    {
-        kprintf("vc_dispmanx_snapshot() returned %d\n", result);
-    }
-
-    if (result != 0)
-    {
-        vc_dispmanx_resource_delete(resourceHandle);
-        vc_dispmanx_display_close(displayHandle);
-
-        kprintf("%s: vc_dispmanx_snapshot() failed\n", program);
-	bcm_host_deinit();
-        exit(EXIT_FAILURE);
-    }
-
-    VC_RECT_T rect;
-
-    result = vc_dispmanx_rect_set(&rect, 0, 0, width, height);
-    if (verbose)
-    {
-        printf("vc_dispmanx_rect_set() returned %d\n", result);
-        kprintf("rect = { %d, %d, %d, %d }\n",
-               rect.x,
-               rect.y,
-               rect.width,
-               rect.height);
-    }
-
-    if (result != 0)
-    {
-        vc_dispmanx_resource_delete(resourceHandle);
-        vc_dispmanx_display_close(displayHandle);
-
-        kprintf("%s: vc_dispmanx_rect_set() failed\n", program);
-	bcm_host_deinit();
-        exit(EXIT_FAILURE);
-    }
-
-
-    result = vc_dispmanx_resource_read_data(resourceHandle,
-                                            &rect,
-                                            dmxImagePtr,
-                                            pitch);
-
-    if (result != 0)
-    {
-        vc_dispmanx_resource_delete(resourceHandle);
-        vc_dispmanx_display_close(displayHandle);
-
-        kprintf("%s: vc_dispmanx_resource_read_data() failed\n",
-                program);
-
-	bcm_host_deinit();
-        exit(EXIT_FAILURE);
-    }
-
-    if (verbose)
-    {
-        kprintf("vc_dispmanx_resource_read_data() returned %d\n", result);
-    }
-
-    result = vc_dispmanx_resource_delete(resourceHandle);
-
-    if (verbose)
-    {
-        kprintf("vc_dispmanx_resource_delete() returned %d\n", result);
-    }
-
-    result = vc_dispmanx_display_close(displayHandle);
-
-    if (verbose)
-    {
-        kprintf("vc_dispmanx_display_close() returned %d\n", result);
-    }
-
+    dispmanx_grabber_close(&grabState);
     // rotate the image if necessary
     if (is_screen_flipped())
       {
 	kprintf("flipping image due to rotated screen...\n");
 	void *dmxRotatedImagePtr=rotate_image_180((unsigned char *)dmxImagePtr, ALIGN_TO_16(width), height, pitch, bytesPerPixel);
 	if (dmxRotatedImagePtr) {
-	  free(dmxImagePtr);
-	  dmxImagePtr = dmxRotatedImagePtr;
+            free(dmxImagePtr);
+            dmxImagePtr = dmxRotatedImagePtr;
 	}
 	else {
 	  kprintf("could not flip image... out of memory error\n");

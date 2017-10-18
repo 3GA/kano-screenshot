@@ -77,7 +77,9 @@ video_encode_test(char *outputfilename)
    int framenumber = 0;
    FILE *outf;
 
-   const char* imageTypeName = "RGB565";
+   //const char* imageTypeName = "RGB565";
+   //const char* imageTypeName = "RGBA32";
+   const char* imageTypeName = "BGR888";
    
    DispmanxGrabberState grabState;
    DispmanxGrabberConfig grabCfg = {
@@ -144,8 +146,9 @@ video_encode_test(char *outputfilename)
    def.format.video.xFramerate = 30 << 16;
    def.format.video.nSliceHeight = def.format.video.nFrameHeight;
    def.format.video.nStride = def.format.video.nFrameWidth;
-   def.format.video.eColorFormat = OMX_COLOR_Format16bitRGB565;
-
+//   def.format.video.eColorFormat = OMX_COLOR_Format16bitRGB565;
+   def.format.video.eColorFormat = OMX_COLOR_Format24bitBGR888;
+   //def.format.video.eColorFormat = OMX_COLOR_Format32bitARGB8888;
    print_def(def);
 
    r = OMX_SetParameter(ILC_GET_HANDLE(video_encode),

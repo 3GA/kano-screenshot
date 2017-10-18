@@ -8,6 +8,7 @@ static DispManxImageInfo imageInfo[] =
 {
     { "RGB565", VC_IMAGE_RGB565, 2 },
     { "RGB888", VC_IMAGE_RGB888, 3 },
+    { "BGR888", VC_IMAGE_BGR888, 3 },
     { "RGBA16", VC_IMAGE_RGBA16, 2 },
     { "RGBA32", VC_IMAGE_RGBA32, 4 }
 };

@@ -38,37 +38,9 @@ extern "C" {
 #include "ilclient.h"
 }
 #define NUMFRAMES 300
-#define WIDTH     640
-#define PITCH     ((WIDTH+31)&~31)
-#define HEIGHT    ((WIDTH)*9/16)
-#define HEIGHT16  ((HEIGHT+15)&~15)
-#define SIZE      ((WIDTH * HEIGHT16 * 3)/2)
 
-// generate an animated test card in YUV format
-static int
-generate_test_card(void *buf, OMX_U32 * filledLen, int frame)
-{
-   int i, j;
-   char *y = (char *)buf, *u = y + PITCH * HEIGHT16, *v =
-      u + (PITCH >> 1) * (HEIGHT16 >> 1);
+#include "dispmanx_grabber.h"
 
-   for (j = 0; j < HEIGHT / 2; j++) {
-      char *py = y + 2 * j * PITCH;
-      char *pu = u + j * (PITCH >> 1);
-      char *pv = v + j * (PITCH >> 1);
-      for (i = 0; i < WIDTH / 2; i++) {
-	 int z = (((i + frame) >> 4) ^ ((j + frame) >> 4)) & 15;
-	 py[0] = py[1] = py[PITCH] = py[PITCH + 1] = 0x80 + z * 0x8;
-	 pu[0] = 0x00 + z * 0x10;
-	 pv[0] = 0x80 + z * 0x30;
-	 py += 2;
-	 pu++;
-	 pv++;
-      }
-   }
-   *filledLen = SIZE;
-   return 1;
-}
 
 static void
 print_def(OMX_PARAM_PORTDEFINITIONTYPE def)
@@ -104,6 +76,27 @@ video_encode_test(char *outputfilename)
    int status = 0;
    int framenumber = 0;
    FILE *outf;
+
+   const char* imageTypeName = "RGB565";
+   
+   DispmanxGrabberState grabState;
+   DispmanxGrabberConfig grabCfg = {
+       .requestedWidth = 640,
+       .requestedHeight = 480,
+       .alignLog2 = 5,
+       .imageTypeName = imageTypeName, 
+       .verbose = true,
+       .logPrintf = &printf
+   };
+   
+   int result = dispmanx_grabber_init(&grabState, grabCfg);
+   if(result) {
+       printf(" dispmanx_grabber_init_failed: %d \n",  result);
+       dispmanx_grabber_close(&grabState);
+       exit(1);
+   }
+
+   DispmanxGrabberFrameInfo frameInfo = dispmanx_grabber_frameinfo(&grabState);
 
    memset(list, 0, sizeof(list));
 
@@ -146,12 +139,12 @@ video_encode_test(char *outputfilename)
    print_def(def);
 
    // Port 200: in 1/1 115200 16 enabled,not pop.,not cont. 320x240 320x240 @1966080 20
-   def.format.video.nFrameWidth = WIDTH;
-   def.format.video.nFrameHeight = HEIGHT;
+   def.format.video.nFrameWidth = frameInfo.width;
+   def.format.video.nFrameHeight = frameInfo.height;
    def.format.video.xFramerate = 30 << 16;
    def.format.video.nSliceHeight = def.format.video.nFrameHeight;
    def.format.video.nStride = def.format.video.nFrameWidth;
-   def.format.video.eColorFormat = OMX_COLOR_FormatYUV420PackedPlanar;
+   def.format.video.eColorFormat = OMX_COLOR_Format16bitRGB565;
 
    print_def(def);
 
@@ -251,7 +244,9 @@ video_encode_test(char *outputfilename)
       }
       else {
 	 /* fill it */
-	 generate_test_card(buf->pBuffer, &buf->nFilledLen, framenumber++);
+          result = dispmanx_grabber_grab(&grabState, buf->pBuffer);
+          buf->nFilledLen = frameInfo.frame_size;
+          framenumber++;
 
 	 if (OMX_EmptyThisBuffer(ILC_GET_HANDLE(video_encode), buf) !=
 	     OMX_ErrorNone) {

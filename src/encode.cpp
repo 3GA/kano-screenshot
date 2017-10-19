@@ -33,13 +33,28 @@ extern "C" {
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/time.h>
+#include <signal.h>
+#include <time.h>
+#include <math.h>   
 
 #include "bcm_host.h"
 #include "ilclient.h"
 }
-#define NUMFRAMES 300
 
 #include "dispmanx_grabber.h"
+
+// variables used by signal handers
+static bool caughtINT = false;
+
+void sigINTHandler(int)
+{
+    caughtINT = true;
+}
+void sigHUPHandler(int)
+{
+    // don't need to do anything - just interrupt wait
+}
 
 
 static void
@@ -63,7 +78,13 @@ print_def(OMX_PARAM_PORTDEFINITIONTYPE def)
 }
 
 static int
-video_encode_test(char *outputfilename)
+video_encode_test(char *outputfilename,
+                  int requestedWidth,
+                  int requestedHeight,
+                  float rate,
+                  int frames,
+                  bool stopmotion)
+
 {
    OMX_VIDEO_PARAM_PORTFORMATTYPE format;
    OMX_PARAM_PORTDEFINITIONTYPE def;
@@ -76,6 +97,9 @@ video_encode_test(char *outputfilename)
    int status = 0;
    int framenumber = 0;
    FILE *outf;
+   uint64_t us_rate = floor(1000000.0/rate);
+   if(stopmotion)
+       us_rate = 24*60*60*1000000;
 
    //const char* imageTypeName = "RGB565";
    //const char* imageTypeName = "RGBA32";
@@ -83,8 +107,8 @@ video_encode_test(char *outputfilename)
    
    DispmanxGrabberState grabState;
    DispmanxGrabberConfig grabCfg = {
-       .requestedWidth = 640,
-       .requestedHeight = 480,
+       .requestedWidth = requestedWidth,
+       .requestedHeight = requestedHeight,
        .alignLog2 = 5,
        .imageTypeName = imageTypeName, 
        .verbose = true,
@@ -182,7 +206,7 @@ video_encode_test(char *outputfilename)
    bitrateType.nSize = sizeof(OMX_VIDEO_PARAM_BITRATETYPE);
    bitrateType.nVersion.nVersion = OMX_VERSION;
    bitrateType.eControlRate = OMX_Video_ControlRateVariable;
-   bitrateType.nTargetBitrate = 1000000;
+   bitrateType.nTargetBitrate = 3000000;
    bitrateType.nPortIndex = 201;
    r = OMX_SetParameter(ILC_GET_HANDLE(video_encode),
                        OMX_IndexParamVideoBitrate, &bitrateType);
@@ -246,10 +270,22 @@ video_encode_test(char *outputfilename)
 	 printf("Doh, no buffers for me!\n");
       }
       else {
-	 /* fill it */
+          /* fill it */
+          struct timeval tv, tv_next;
+          gettimeofday(&tv, NULL);
+          uint64_t us = tv.tv_usec + tv.tv_sec * 1000000ull;
           result = dispmanx_grabber_grab(&grabState, buf->pBuffer);
           buf->nFilledLen = frameInfo.frame_size;
           framenumber++;
+          
+          
+          OMX_TICKS time;
+          time.nLowPart = us & 0xffffffff;
+          time.nHighPart = us >> 32;
+          buf->nTimeStamp = time;
+          if(framenumber==0){
+              buf->nFlags |=OMX_BUFFERFLAG_STARTTIME;
+          }
 
 	 if (OMX_EmptyThisBuffer(ILC_GET_HANDLE(video_encode), buf) !=
 	     OMX_ErrorNone) {
@@ -270,13 +306,14 @@ video_encode_test(char *outputfilename)
 		  printf("%x ", out->pBuffer[i]);
 	       printf("\n");
 	    }
+            printf("output timestamp %d",out->nTimeStamp);
 
 	    r = fwrite(out->pBuffer, 1, out->nFilledLen, outf);
 	    if (r != out->nFilledLen) {
 	       printf("fwrite: Error emptying buffer: %d!\n", r);
 	    }
 	    else {
-	       printf("Writing frame %d/%d\n", framenumber, NUMFRAMES);
+                printf("Writing frame %d/%d len %d\n", framenumber, frames,  out->nFilledLen);
 	    }
 	    out->nFilledLen = 0;
 	 }
@@ -284,9 +321,17 @@ video_encode_test(char *outputfilename)
 	    printf("Not getting it :(\n");
 	 }
 
+         gettimeofday(&tv_next, NULL);
+         uint64_t us_next = tv_next.tv_usec + tv_next.tv_sec * 1000000ull;
+         uint64_t us_diff = us_next-us;
+         uint64_t us_wait = us_rate - us_diff;
+         struct timespec ts_wait = {.tv_sec = us_wait/1000000,
+                                    .tv_nsec = (us_wait %1000000) * 1000};
+         nanosleep(&ts_wait, NULL);
+                                    
       }
    }
-   while (framenumber < NUMFRAMES);
+   while (!caughtINT && framenumber < frames);
 
    fclose(outf);
 
@@ -306,14 +351,72 @@ video_encode_test(char *outputfilename)
    ilclient_destroy(client);
    return status;
 }
+void usage(void)
+{
+    printf("Usage: kano-screencapture [OPTIONS]\n" );
+    printf("Options:\n");
+    printf("\t[-h <height>] :    output height (default 480)\n");
+    printf("\t[-w <width>]  :    output width (default 640)\n");
+    printf("\t[-f <frames>] :    number of frames (default 300) \n");
+    printf("\t[-r <rate>]   :    frame rate (default 25.0) \n");
+    printf("\t[-o <outfile>]:    output file (default kano-screencapture.h264) \n");
+    printf("\t[-s]          :    stopmotion mode \n");
+
+    exit(1);
+}
 
 int
 main(int argc, char **argv)
 {
-   if (argc < 2) {
-      printf("Usage: %s <filename>\n", argv[0]);
-      exit(1);
-   }
-   bcm_host_init();
-   return video_encode_test(argv[1]);
+    int requestedWidth = 640;
+    int requestedHeight = 480;
+    float rate = 25;
+    int frames = 300;
+    bool stopmotion = false;
+    int opt = 0;
+    char *outfile = (char *)"kano-screencapture.h264";
+    if (argc < 2) {
+        usage();
+    }
+    while ((opt = getopt(argc, argv, "h:w:f:r:o:s")) != -1)
+    {
+        switch (opt)
+        {
+        case 'h':
+            requestedHeight = atoi(optarg);
+            break;
+        case 'w':
+            requestedWidth = atoi(optarg);
+            break;
+        case 'f':
+            frames = atoi(optarg);
+            break;
+        case 'r':
+            rate = atof(optarg);
+            break;
+        case 'o':
+            outfile = optarg;
+            break;
+        case 's':
+            stopmotion = true;
+            break;
+        default:
+            usage();
+        }          
+    }
+
+    bcm_host_init();
+
+
+    // TODO, not sure if encoder will like signals, maybe use some other IPC mechanism
+    signal(SIGINT, sigINTHandler); 
+    signal(SIGHUP, sigHUPHandler);
+    
+    return video_encode_test(outfile,
+                             requestedWidth,
+                             requestedHeight,
+                             rate,
+                             frames,
+                             stopmotion
+                            );
 }

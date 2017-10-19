@@ -1,3 +1,4 @@
 src/kano-screenshot /usr/bin
+src/kano-screencapture /usr/bin
 tests/kano-screenshot-tests.sh /usr/share/doc/kano-screenshot
 media/* /usr/share/kano-screenshot/media

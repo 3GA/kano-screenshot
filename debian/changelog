@@ -1,3 +1,9 @@
+kano-screenshot (3.14.0-0) unstable; urgency=low
+
+  * Add kano-screencapture
+
+ -- Team Kano <dev@kano.me>  Mon, 11 Apr 2016 17:10:03 +0100
+
 kano-screenshot (1.2-1) unstable; urgency=low
 
   * Fixed eventual hang if several DispmanX apps were running

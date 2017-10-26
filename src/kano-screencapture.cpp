@@ -82,8 +82,7 @@ video_encode_test(char *outputfilename,
                   int requestedWidth,
                   int requestedHeight,
                   float rate,
-                  int frames,
-                  bool stopmotion)
+                  int frames)
 
 {
    OMX_VIDEO_PARAM_PORTFORMATTYPE format;
@@ -98,8 +97,6 @@ video_encode_test(char *outputfilename,
    int framenumber = 0;
    FILE *outf;
    uint64_t us_rate = floor(1000000.0/rate);
-   if(stopmotion)
-       us_rate = 24*60*60*1000000;
 
    //const char* imageTypeName = "RGB565";
    //const char* imageTypeName = "RGBA32";
@@ -360,7 +357,6 @@ void usage(void)
     printf("\t[-f <frames>] :    number of frames (default 300) \n");
     printf("\t[-r <rate>]   :    frame rate (default 25.0) \n");
     printf("\t[-o <outfile>]:    output file (default kano-screencapture.h264) \n");
-    printf("\t[-s]          :    stopmotion mode \n");
 
     exit(1);
 }
@@ -372,7 +368,6 @@ main(int argc, char **argv)
     int requestedHeight = 480;
     float rate = 25;
     int frames = 300;
-    bool stopmotion = false;
     int opt = 0;
     char *outfile = (char *)"kano-screencapture.h264";
     if (argc < 2) {
@@ -397,9 +392,6 @@ main(int argc, char **argv)
         case 'o':
             outfile = optarg;
             break;
-        case 's':
-            stopmotion = true;
-            break;
         default:
             usage();
         }          
@@ -416,7 +408,6 @@ main(int argc, char **argv)
                              requestedWidth,
                              requestedHeight,
                              rate,
-                             frames,
-                             stopmotion
+                             frames
                             );
 }

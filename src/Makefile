@@ -13,7 +13,7 @@
 KS_OBJS=kano-screenshot.o xwindows.o dispmanx_grabber.o
 KS_BIN=kano-screenshot
 
-KV_OBJS=encode.o dispmanx_grabber.o
+KV_OBJS=kano-screencapture.o dispmanx_grabber.o
 KV_BIN=kano-screencapture
 
 # By default we enable full code optimization, unless "debug" is requested

@@ -1,10 +1,17 @@
+// dispmanx_grabber.cpp
+//
+// Copyright (C) 2014, 2015, 2016, 2017 Kano Computing Ltd.
+// License: http://www.gnu.org/licenses/gpl-2.0.txt GNU General Public License v2
+//
+// Module which deals with grabbing a screenshot from dispmanx
+
 #include "dispmanx_grabber.h"
 #include <stdio.h>
 #include <math.h>
 
 #define kprintf if(st->cfg.verbose && st->cfg.logPrintf) st->cfg.logPrintf
 
-static DispManxImageInfo imageInfo[] =
+static const DispManxImageInfo imageInfo[] =
 {
     { "RGB565", VC_IMAGE_RGB565, 2 },
     { "RGB888", VC_IMAGE_RGB888, 3 },
@@ -12,7 +19,7 @@ static DispManxImageInfo imageInfo[] =
     { "RGBA16", VC_IMAGE_RGBA16, 2 },
     { "RGBA32", VC_IMAGE_RGBA32, 4 }
 };
-static size_t imageEntries = sizeof(imageInfo)/sizeof(imageInfo[0]);
+static const size_t imageEntries = sizeof(imageInfo)/sizeof(imageInfo[0]);
 
 void dispmanx_grabber_print_names(void)
 {
@@ -74,47 +81,41 @@ int dispmanx_grabber_init(DispmanxGrabberState *st,
     int width = st->modeInfo.width;
     int height = st->modeInfo.height;
 
+    // avoid larger widths than the screen fits
+    cfg.requestedWidth = (cfg.requestedWidth > width ? width : cfg.requestedWidth);
+    // avoid larger heights than the screen fits
+    cfg.requestedHeight = (cfg.requestedHeight > height ? height : cfg.requestedHeight);
+
     if (cfg.requestedWidth > 0)
-      {
-        // avoid larger widths than the screen fits
-        cfg.requestedWidth = (cfg.requestedWidth > width ? width : cfg.requestedWidth);
-	
+    {
         if (cfg.requestedHeight == 0)
-	  {
-            double numerator = height * cfg.requestedWidth;
-            double denominator = width;
-            height = (int)ceil(numerator / denominator);
-	  }
-
+        {
+            double scale = static_cast<double>(cfg.requestedWidth) / static_cast<double>(width);
+            height = static_cast<int>(ceil(height * scale));
+        }
+        else
+        {
+            height = cfg.requestedHeight;
+        }
         width = cfg.requestedWidth;
-        kprintf ("Rescaling width: new width=%d, height=%d\n", width, height);
-      }
-
-    if (cfg.requestedHeight > 0)
-      {
-        // avoid larger heights than the screen fits
-        cfg.requestedHeight = (cfg.requestedHeight > height ? height : cfg.requestedHeight);
-	
-        if (cfg.requestedWidth == 0)
-	  {
-	    double numerator = width * cfg.requestedHeight;
-            double denominator = height;
-            width = (int)ceil(numerator / denominator);
-	  }
-
+        kprintf ("Rescaling: new width=%d, height=%d\n", width, height);
+    }
+    else if (cfg.requestedHeight > 0) // and requestedWidth was 0
+    {
+        double scale = static_cast<double>(cfg.requestedHeight) / static_cast<double>(height);
+        double numerator = width * cfg.requestedHeight;
+        width = static_cast<int>(ceil(scale * width));
         height = cfg.requestedHeight;
-        kprintf ("Rescaling height: new width=%d, height=%d\n", width, height);
-      }
-
+        kprintf ("Rescaling: new width=%d, height=%d\n", width, height);
+    }
 
     int pitch = st->frameInfo.bytesPerPixel * align(width, cfg.alignLog2);
-    
 
     st->vcImagePtr = 0;
     st->resourceHandle = vc_dispmanx_resource_create(st->frameInfo.imageType,
                                                      width,
-                                                 height,
-                                                 &st->vcImagePtr);
+                                                     height,
+                                                     &st->vcImagePtr);
     st->frameInfo.width = width;
     st->frameInfo.height = height;
     st->frameInfo.pitch = pitch;
@@ -151,11 +152,10 @@ int dispmanx_grabber_grab(DispmanxGrabberState *st, void *imagePtr)
     // the only implemented option at this API level (see rotate_image_180 function).
     int result = vc_dispmanx_snapshot(st->displayHandle,
                                       st->resourceHandle,
-                                  DISPMANX_NO_ROTATE);
+                                      DISPMANX_NO_ROTATE);
     
     if (result != 0)
     {
-        
         return DISPMANX_GRABBER_SNAPSHOT_FAIL;
     }
     

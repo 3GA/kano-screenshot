@@ -2,6 +2,9 @@
 Copyright (c) 2012, Broadcom Europe Ltd
 Copyright (c) 2012, Kalle Vahlman <zuh@iki>
                     Tuomas Kulve <tuomas@kulve.fi>
+Copyright (C) 2017  Kano Computing Ltd.
+
+
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without

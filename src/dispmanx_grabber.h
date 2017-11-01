@@ -1,3 +1,10 @@
+// dispmanx_grabber.cpp
+//
+// Copyright (C) 2014, 2015, 2016, 2017 Kano Computing Ltd.
+// License: http://www.gnu.org/licenses/gpl-2.0.txt GNU General Public License v2
+//
+// Module which deals with grabbing a screenshot from dispmanx
+
 #ifndef DISPMANX_GRABBER_H
 #define DISPMANX_GRABBER_H
 #include "bcm_host.h"

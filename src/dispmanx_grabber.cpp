@@ -109,7 +109,7 @@ int dispmanx_grabber_init(DispmanxGrabberState *st,
         kprintf ("Rescaling: new width=%d, height=%d\n", width, height);
     }
 
-    int pitch = st->frameInfo.bytesPerPixel * align(width, cfg.alignLog2);
+    int pitch = align(st->frameInfo.bytesPerPixel * width, cfg.alignLog2);
 
     st->vcImagePtr = 0;
     st->resourceHandle = vc_dispmanx_resource_create(st->frameInfo.imageType,

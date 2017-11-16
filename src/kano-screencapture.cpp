@@ -169,7 +169,8 @@ video_encode_test(char *outputfilename,
    def.format.video.nFrameHeight = frameInfo.height;
    def.format.video.xFramerate = 30 << 16;
    def.format.video.nSliceHeight = def.format.video.nFrameHeight;
-   def.format.video.nStride = def.format.video.nFrameWidth;
+   def.format.video.nStride = frameInfo.pitch;
+   def.nBufferSize =  def.format.video.nStride * def.format.video.nSliceHeight;
 //   def.format.video.eColorFormat = OMX_COLOR_Format16bitRGB565;
    def.format.video.eColorFormat = OMX_COLOR_Format24bitBGR888;
    //def.format.video.eColorFormat = OMX_COLOR_Format32bitARGB8888;

@@ -43,7 +43,18 @@
 
 void main_loop(void)
 {
-    // waiting for key press
+    // Loop:
+    //   Wait for share key
+    //   When pressed, pop up prompt for 3 seconds
+    //   If share key is pressed before timeout:
+    //      start capture
+    //      if share key is again pressed before timeout
+    //         stop capture
+    //         pop up exit prompt for 3 seconds
+    //      else:
+    //         pop up timeout prompt for 3 seconds
+    //      (TBD) postprocess and copy output
+    
     int child_pid = -1;
     int status;
     while(true)
@@ -65,7 +76,7 @@ void main_loop(void)
             if(event  == EVENT_CHILD_DIED)
             {
                 
-                waitpid(child_pid, &status, WNOHANG); // release child
+                waitpid(child_pid, &status, WNOHANG); // release popup process
                 // todo - check status
             }
             
@@ -88,13 +99,14 @@ void main_loop(void)
             // key pressed again, stop the recording
             final_popup_cmd = IMAGE_CMD_EXIT;
             kill(child_pid, SIGINT);
+            event = yield();
         }
-        event = yield();
         while(event != EVENT_CHILD_DIED)
         {
             event = yield();
+            // TBD if we get stuck here, try kill -9?
         }
-        waitpid(child_pid, &status, WNOHANG); // release child
+        waitpid(child_pid, &status, WNOHANG); // release capture process
         // todo - check status
 
 
@@ -110,7 +122,7 @@ void main_loop(void)
             event = yield();
         }
 
-        waitpid(child_pid, &status, WNOHANG); // release child
+        waitpid(child_pid, &status, WNOHANG); // release popup process
         // todo - check status
 
         
